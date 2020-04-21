@@ -1,0 +1,31 @@
+[submodule "csidh-rust"]
+	path = csidh-rust
+	url = https://github.com/thomwiggers/csidh-rust.git
+[submodule "pqcrypto"]
+	path = pqcrypto
+	url = https://github.com/thomwiggers/pqcrypto
+[submodule "oqs-rs"]
+	path = oqs-rs
+	url = https://github.com/thomwiggers/oqs-rs
+[submodule "sct.rs"]
+	path = sct.rs
+	url = git@github.com:thomwiggers/sct.rs.git
+	branch = pqhacks
+[submodule "tls-hacking"]
+	path = tls-hacking
+	url = git@github.com:thomwiggers/tls-hacking.git
+[submodule "webpki"]
+	path = webpki
+	url = https://github.com/thomwiggers/webpki.git
+[submodule "webpki-roots"]
+	path = webpki-roots
+	url = https://github.com/thomwiggers/webpki-roots.git
+[submodule "ring"]
+	path = ring
+	url = https://github.com/thomwiggers/ring
+[submodule "rustls"]
+	path = rustls
+	url = https://github.com/thomwiggers/rustls
+[submodule "mk-cert"]
+	path = mk-cert
+	url = https://github.com/thomwiggers/mk-cert
