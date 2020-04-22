@@ -6,3 +6,6 @@ mk-cert/*.pub
 mk-cert/*.bin
 mk-cert/*.key
 mk-cert/tbs*
+*.o
+*.a
+*.so
