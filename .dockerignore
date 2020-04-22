@@ -1,0 +1,8 @@
+.git/*
+Dockerfile
+**/target/*
+mk-cert/*.crt
+mk-cert/*.pub
+mk-cert/*.bin
+mk-cert/*.key
+mk-cert/tbs*
