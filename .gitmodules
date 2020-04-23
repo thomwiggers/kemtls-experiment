@@ -29,3 +29,6 @@
 [submodule "mk-cert"]
 	path = mk-cert
 	url = https://github.com/thomwiggers/mk-cert
+[submodule "rustls-pqtls"]
+	path = rustls-pqtls
+	url = https://github.com/thomwiggers/rustls.git
