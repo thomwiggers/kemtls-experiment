@@ -1,11 +1,12 @@
+set -e
 
 cd ..
 
 # KEM-certs and signed KEX
 # Min no cache
-#./create-experimental-setup.sh RainbowIaCyclic XMSSs SikeP434Compressed
+#./create-experimental-setup.sh RainbowIaCyclic XMSSs sikep434compressed
 # Min: cached
-./create-experimental-setup.sh RainbowIaCyclic RainbowIaCyclic SikeP434Compressed
+./create-experimental-setup.sh RainbowIaCyclic RainbowIaCyclic sikep434compressed
 # Ass: MLWE
 ./create-experimental-setup.sh Dilithium2 Dilithium2 kyber512
 # Ass: NTRU
