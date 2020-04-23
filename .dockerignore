@@ -1,5 +1,7 @@
 .git/*
 Dockerfile
+.dockerignore
+*.sh
 **/target/*
 mk-cert/*.crt
 mk-cert/*.pub
