@@ -9,3 +9,4 @@ mk-cert/tbs*
 *.o
 *.a
 *.so
+measuring/*
