@@ -2,12 +2,22 @@ set -e
 
 cd ..
 
-# KEM-certs and signed KEX
-# Min no cache
-#./create-experimental-setup.sh RainbowIaCyclic XMSSs sikep434compressed
-# Min: cached
-./create-experimental-setup.sh RainbowIaCyclic RainbowIaCyclic sikep434compressed
+# Signed KEX
+# Min w/o cache
+#./create-experimental-setup.sh sikep434compressed Falcon512 XMSSs RainbowIaCyclic
+# Min w/ cache (covered below)
+#./create-experimental-setup.sh sikep434compressed Falcon512 RainbowIaCyclic RainbowIaCyclic
 # Ass: MLWE
-./create-experimental-setup.sh Dilithium2 Dilithium2 kyber512
+#./create-experimental-setup.sh kyber512 Dilithium2 Dilithium2 Dilithium2
 # Ass: NTRU
-./create-experimental-setup.sh Falcon512 Falcon512 ntruhps2048509
+#./create-experimental-setup.sh ntruhps2048509 Falcon512 Falcon512 Falcon512
+
+# KEM-TLS
+# Min w/o cache (covered above)
+#./create-experimental-setup.sh sikep424compressed <ANYALG> XMSSs RainbowIaCyclic
+# Min: w/ cached
+./create-experimental-setup.sh sikep434compressed Falcon512 RainbowIaCyclic RainbowIaCyclic
+# Ass: MLWE
+./create-experimental-setup.sh kyber512 Dilithium2 Dilithium2 Dilithium2
+# Ass: NTRU
+./create-experimental-setup.sh ntruhps2048509 Falcon512 Falcon512 Falcon512
