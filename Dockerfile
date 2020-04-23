@@ -18,7 +18,7 @@ RUN apt-key add /llvm.key \
 ENV CC=gcc
 
 # Rust options
-ENV RUSTFLAG "-C target-cpu=native"
+ENV RUSTFLAGS "-C target-cpu=native -C link-arg=-s"
 ENV RUST_MIN_STACK "20971520"
 
 # Copy in the source
