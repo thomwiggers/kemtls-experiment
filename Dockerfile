@@ -65,8 +65,10 @@ RUN cargo build --release --example tlsserver && \
 # (and those follow from pqclean / oqs)
 ARG ROOT_SIGALG="RainbowIaCyclic"
 ARG INT_SIGALG="Falcon512"
+ARG LEAF_SIGALG="Falcon512"
 ENV ROOT_SIGALG $ROOT_SIGALG
 ENV INT_SIGALG  $INT_SIGALG
+ENV LEAF_SIGALG $LEAF_SIGALG
 
 # actually generate the certificates
 # FIXME support X25519/RSA
