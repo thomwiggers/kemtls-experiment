@@ -24,6 +24,6 @@ docker run --rm \
     --volume $volumename:/output \
     --workdir /output   \
     pqtls-builder \
-    bash -c "cp /usr/local/bin/tlsserver kemtlsserver &&
-             cp /usr/local/bin/tlsclient kemtlsclient &&
+    bash -c "cp /usr/local/bin/*tlsserver . &&
+             cp /usr/local/bin/*tlsclient . &&
              cp /certs/* ."

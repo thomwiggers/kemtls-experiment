@@ -33,7 +33,9 @@ WORKDIR /usr/src/pqtls/mk-cert/kemutil
 RUN echo "pub use pqcrypto::kem::kyber512::*;" > src/kem.rs
 RUN cargo build --release --features pqclean
 
-WORKDIR /usr/src/pqtls/rustls/rustls-mio
+WORKDIR /usr/src/pqtls/rustls-kemtls/rustls-mio
+RUN cargo build --release --examples
+WORKDIR /usr/src/pqtls/rustls-pqtls/rustls-mio
 RUN cargo build --release --examples
 
 # Set up certificates (parameterised by the env vars)
@@ -41,23 +43,30 @@ WORKDIR  /usr/src/pqtls/mk-cert
 RUN pipenv install
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
-# (and those follow from pqclean / oqs
-ARG ROOT_SIGALG="RainbowIaCyclic"
-ARG INT_SIGALG="Falcon512"
+# (and those follow from pqclean / oqs)
 ARG KEX_ALG="kyber512"
-
 # re-export build args as env vars
-ENV ROOT_SIGALG $ROOT_SIGALG
-ENV INT_SIGALG  $INT_SIGALG
 ENV KEX_ALG     $KEX_ALG
 
 # Update the KEX alg
-RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^^}'@' /usr/src/pqtls/rustls/src/client/default_group.rs
+RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^^}'@' /usr/src/pqtls/rustls-kemtls/src/client/default_group.rs
+RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^^}'@' /usr/src/pqtls/rustls-pqtls/src/client/default_group.rs
 
 # Compile tlsserver and tlsclient examples
-WORKDIR /usr/src/pqtls/rustls/rustls-mio/
+WORKDIR /usr/src/pqtls/rustls-kemtls/rustls-mio/
 RUN cargo build --release --example tlsserver && \
     cargo build --release --example tlsclient
+
+WORKDIR /usr/src/pqtls/rustls-pqtls/rustls-mio/
+RUN cargo build --release --example tlsserver && \
+    cargo build --release --example tlsclient
+
+# These must exactly match what is listed in the options of mk-cert/encoder.py
+# (and those follow from pqclean / oqs)
+ARG ROOT_SIGALG="RainbowIaCyclic"
+ARG INT_SIGALG="Falcon512"
+ENV ROOT_SIGALG $ROOT_SIGALG
+ENV INT_SIGALG  $INT_SIGALG
 
 # actually generate the certificates
 # FIXME support X25519/RSA
@@ -71,11 +80,13 @@ RUN apt-get update -qq \
  && apt-get install -qq -y libssl1.1 \
  && rm -rf /var/cache/apt
 
-COPY --from=builder /usr/src/pqtls/rustls/rustls-mio/target/release/examples/tlsclient /usr/local/bin
-COPY --from=builder /usr/src/pqtls/rustls/rustls-mio/target/release/examples/tlsserver /usr/local/bin
+COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/kemtlsserver
+COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/kemtlsclient
+COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/pqtlsserver
+COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/pqtlsclient
 COPY --from=builder /usr/src/pqtls/mk-cert/*.crt /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.key /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.pub /certs/
 
 WORKDIR /certs
-CMD ["tlsserver", "--help"]
+CMD ["echo", "Run {kem,pq}tls{server,client} for the relevant builds of rustls-mio server/client: KEX:", $KEX_ALG]

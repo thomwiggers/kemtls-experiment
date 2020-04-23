@@ -24,7 +24,7 @@
 	path = ring
 	url = https://github.com/thomwiggers/ring
 [submodule "rustls"]
-	path = rustls
+	path = rustls-kemtls
 	url = https://github.com/thomwiggers/rustls
 [submodule "mk-cert"]
 	path = mk-cert
