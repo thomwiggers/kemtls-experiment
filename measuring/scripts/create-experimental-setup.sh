@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROOT=$(dirname $0)
+ROOT=$(dirname $0)/../../
 cd $ROOT
 
 export KEX_ALG="${1:-kyber512}"
