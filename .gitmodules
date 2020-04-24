@@ -32,3 +32,6 @@
 [submodule "rustls-pqtls"]
 	path = rustls-pqtls
 	url = https://github.com/thomwiggers/rustls.git
+[submodule "xmss-rs"]
+	path = xmss-rs
+	url = https://github.com/thomwiggers/xmss-rs.git
