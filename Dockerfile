@@ -84,8 +84,8 @@ RUN apt-get update -qq \
 
 COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/kemtlsserver
 COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/kemtlsclient
-COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/pqtlsserver
-COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/pqtlsclient
+COPY --from=builder /usr/src/pqtls/rustls-pqtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/pqtlsserver
+COPY --from=builder /usr/src/pqtls/rustls-pqtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/pqtlsclient
 COPY --from=builder /usr/src/pqtls/mk-cert/*.crt /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.key /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.pub /certs/

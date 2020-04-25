@@ -1,8 +1,10 @@
 set -e
 
+cd $(dirname $0)
+
 # Signed KEX
 # Min w/o cache
-#./create-experimental-setup.sh sikep434compressed Falcon512 XMSSs RainbowIaCyclic
+./create-experimental-setup.sh sikep434compressed Falcon512 XMSS RainbowIaCyclic
 # Min w/ cache (covered below)
 #./create-experimental-setup.sh sikep434compressed Falcon512 RainbowIaCyclic RainbowIaCyclic
 # Ass: MLWE (covered below)

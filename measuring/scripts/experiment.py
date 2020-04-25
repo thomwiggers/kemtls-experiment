@@ -14,21 +14,28 @@ hostname = 'servername'
 ALGORITHMS = (
     # Need to specify leaf to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
+    ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
+    ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
+    ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    ('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
+    ('kem', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
 )
 
-LATENCIES = ['2.684ms'] #, '15.458ms', '39.224ms', '97.73ms']
-LOSS_RATES = [0,] # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
-NUM_PINGS = 5  # for measuring the practical latency
+LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
+LOSS_RATES = [0, 0.1] # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+NUM_PINGS = 50  # for measuring the practical latency
 
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
-POOL_SIZE = 1
+POOL_SIZE = 40
 
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
 
-MEASUREMENTS_PER_PROCESS = 10
+MEASUREMENTS_PER_PROCESS = 5000
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -85,7 +92,6 @@ class ServerProcess(multiprocessing.Process):
             self.servername = 'kemtlsserver'
             self.certname = 'kem' + ('.chain' if not cached_int else '') + '.crt'
             self.keyname = 'kem.key'
-        self.collected_measurements = []
 
         self.server_process = subprocess.Popen(
             ['ip', 'netns', 'exec', 'srv_ns',
@@ -100,6 +106,7 @@ class ServerProcess(multiprocessing.Process):
         print(f"[+] Launching server on port {self.port}")
         output_reader = io.TextIOWrapper(self.server_process.stdout, newline='\n')
         measurements = {}
+        collected_measurements = []
         while True:
             line = output_reader.readline()
             if not line:
@@ -110,21 +117,9 @@ class ServerProcess(multiprocessing.Process):
                 label = result.group('label')
                 measurements[label] = result.group('timing')
                 if label == self.last_msg:
-                    self.collected_measurements.append(measurements)
+                    collected_measurements.append(measurements)
                     measurements = {}
-        self.pipe.send(self.collected_measurements)
-        self.collected_measurements = None
-
-    def terminate(self):
-        self.server_process.terminate()
-        try:
-            self.server_process.wait(2)
-        except:
-            print("[!] Stopping server on {self.port} failed")
-            self.server_process.kill()
-        if self.collected_measurements:
-            self.pipe.send(self.collected_measurements)
-        super().terminate()
+        self.pipe.send(collected_measurements)
 
 
 def run_measurement_kem(output_queue, path, port, type, cached_int):
@@ -166,16 +161,15 @@ def run_measurement_kem(output_queue, path, port, type, cached_int):
                 measurement = {}
 
     print(f"[+] Shutting down server on port {port}")
-    time.sleep(0.1)
-    server.terminate()
-    time.sleep(0.5)
-    server.close()
+    server.server_process.terminate()
+    server.join(5)
 
     server_data = outpipe.recv()
     assert len(server_data) == len(client_measurements) == MEASUREMENTS_PER_PROCESS, \
             f"{len(server_data)} != {len(client_measurements)} != {MEASUREMENTS_PER_PROCESS}"
 
     output_queue.put(list(zip(server_data, client_measurements)))
+    server.close()
 
 
 def kem_run_timers(path, type, cached_int):
@@ -229,7 +223,7 @@ def reverse_resolve_hostname():
 def main():
     reverse_resolve_hostname()
     os.makedirs(os.path.join('data', 'kem'), exist_ok=True)
-    os.makedirs(os.path.join('data', 'signing'), exist_ok=True)
+    os.makedirs(os.path.join('data', 'sign'), exist_ok=True)
 
     for (cached_int, latency_ms) in itertools.product([True], LATENCIES):
         # To get actual (emulated) RTT
