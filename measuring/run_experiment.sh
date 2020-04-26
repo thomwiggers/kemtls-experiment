@@ -18,4 +18,5 @@ else
     echo "Delete bin folder to recreate stuff"
 fi
 sudo python3 scripts/experiment.py
-sudo chown "$(id -u):$(id -g)" data
+
+ntfy send -b pushover -t "Done with measuring" "Yay!"

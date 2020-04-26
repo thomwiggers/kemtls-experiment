@@ -35,7 +35,7 @@ POOL_SIZE = 40
 
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
 
-MEASUREMENTS_PER_PROCESS = 5000
+MEASUREMENTS_PER_PROCESS = 2500
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -103,7 +103,7 @@ class ServerProcess(multiprocessing.Process):
 
 
     def run(self):
-        print(f"[+] Launching server on port {self.port}")
+        #print(f"[+] Launching server on port {self.port}")
         output_reader = io.TextIOWrapper(self.server_process.stdout, newline='\n')
         measurements = {}
         collected_measurements = []
@@ -122,7 +122,7 @@ class ServerProcess(multiprocessing.Process):
         self.pipe.send(collected_measurements)
 
 
-def run_measurement_kem(output_queue, path, port, type, cached_int):
+def run_measurement(output_queue, path, port, type, cached_int):
     (inpipe, outpipe) = multiprocessing.Pipe()
     server = ServerProcess(path, port, type, inpipe, cached_int)
     server.start()
@@ -137,7 +137,7 @@ def run_measurement_kem(output_queue, path, port, type, cached_int):
         caname = 'kem' + ('-int' if cached_int else '-ca') + '.crt'
 
     measurements = []
-    print(f"[+] Starting measurements on port {port}")
+    #print(f"[+] Starting measurements on port {port}")
     proc_result = subprocess.run(
         ['ip', 'netns', 'exec', 'cli_ns',
          f"./{clientname}", '--cafile', caname, '--loops', str(MEASUREMENTS_PER_PROCESS),
@@ -148,7 +148,7 @@ def run_measurement_kem(output_queue, path, port, type, cached_int):
         check=True,
         cwd=path,
     )
-    print(f"[+] Completed measurements on port {port}")
+    #print(f"[+] Completed measurements on port {port}")
     client_measurements = []
     measurement = {}
     for line in proc_result.stdout.split("\n"):
@@ -160,8 +160,9 @@ def run_measurement_kem(output_queue, path, port, type, cached_int):
                 client_measurements.append(measurement)
                 measurement = {}
 
-    print(f"[+] Shutting down server on port {port}")
+    #print(f"[+] Shutting down server on port {port}")
     server.server_process.terminate()
+    server.server_process.join(5)
     server.join(5)
 
     server_data = outpipe.recv()
@@ -172,11 +173,12 @@ def run_measurement_kem(output_queue, path, port, type, cached_int):
     server.close()
 
 
-def kem_run_timers(path, type, cached_int):
+def experiment_run_timers(path, type, cached_int):
     tasks = [(path, port, type, cached_int) for port in SERVER_PORTS]
     output_queue = multiprocessing.Queue()
-    processes = [multiprocessing.Process(target=run_measurement_kem, args=(output_queue, *args)) for args in tasks]
+    processes = [multiprocessing.Process(target=run_measurement, args=(output_queue, *args)) for args in tasks]
     results = []
+    print(f"[+] Starting processes on {path} for {type}")
     for process in processes:
         process.start()
 
@@ -184,6 +186,7 @@ def kem_run_timers(path, type, cached_int):
     for _i in range(len(processes)):
         results.extend(output_queue.get())
 
+    print(f"[+] Joining processes on {path} for {type}")
     for process in processes:
         process.join()
 
@@ -222,17 +225,23 @@ def reverse_resolve_hostname():
 
 def main():
     reverse_resolve_hostname()
-    os.makedirs(os.path.join('data', 'kem'), exist_ok=True)
-    os.makedirs(os.path.join('data', 'sign'), exist_ok=True)
+    os.makedirs('data', exist_ok=True)
+    os.chown('data', uid=1001, gid=1001)
+    for (type, caching) in itertools.product(['kem', 'sign'], ['int-chain', 'cached']):
+        dirname = os.path.join('data', f"{type}-{caching}")
+        os.makedirs(dirname, exist_ok=True)
+        os.chown(dirname, uid=1001, gid=1001)
 
-    for (cached_int, latency_ms) in itertools.product([True], LATENCIES):
+    for (cached_int, latency_ms) in itertools.product([True, False], LATENCIES):
         # To get actual (emulated) RTT
         change_qdisc('cli_ns', 'cli_ve', 0, delay=latency_ms)
         change_qdisc('srv_ns', 'srv_ve', 0, delay=latency_ms)
         rtt_str = get_rtt_ms()
 
         for (type, kex_alg, leaf, intermediate, root) in ALGORITHMS:
-            print(f"[+] Experiment for {type} {kex_alg} {leaf} {intermediate} {root}")
+            print(f"[+] Experiment for {type} {kex_alg} {leaf} {intermediate} "
+                  f"{root} for {rtt_str}ms latency with "
+                  f"{'cached intermediate' if cached_int else 'full cert chain'}")
             experiment_path = os.path.join("bin", f"{kex_alg}-{leaf}-{intermediate}-{root}")
             if cached_int:
                 fileprefix = f"{kex_alg}_{intermediate}_{root}_{rtt_str}ms"
@@ -243,9 +252,12 @@ def main():
                 print(f"[+] Measuring loss rate {pkt_loss}")
                 change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency_ms)
                 change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency_ms)
-                result = kem_run_timers(experiment_path, type, cached_int)
-                with open(f'data/{type}/{fileprefix}_{pkt_loss}.csv', 'w+') as out:
+                result = experiment_run_timers(experiment_path, type, cached_int)
+                caching_type = 'int-chain' if not cached_int else 'cached'
+                filename = f'data/{type}-{caching_type}/{fileprefix}_{pkt_loss}.csv'
+                with open(filename, 'w+') as out:
                     write_result(out, result)
+                os.chown(filename, uid=1001, gid=1001)
 
 
 if __name__ == "__main__":
