@@ -19,4 +19,4 @@ else
 fi
 sudo python3 scripts/experiment.py
 
-ntfy send -b pushover -t "Done with measuring" "Yay!"
+ntfy -b pushover send "Done with measuring"
