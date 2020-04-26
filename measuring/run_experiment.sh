@@ -17,6 +17,5 @@ if ! [ -d bin ]; then
 else
     echo "Delete bin folder to recreate stuff"
 fi
-sudo python3 scripts/experiment.py
 
-ntfy -b pushover send "Done with measuring"
+ntfy done sudo python3 scripts/experiment.py
