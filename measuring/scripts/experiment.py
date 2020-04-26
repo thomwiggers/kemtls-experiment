@@ -32,10 +32,9 @@ NUM_PINGS = 50  # for measuring the practical latency
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
 POOL_SIZE = 40
-
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-
-MEASUREMENTS_PER_PROCESS = 2500
+MEASUREMENTS_PER_PROCESS = 600
+MEASUREMENTS_PER_CLIENT = 100
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -93,6 +92,8 @@ class ServerProcess(multiprocessing.Process):
             self.certname = 'kem' + ('.chain' if not cached_int else '') + '.crt'
             self.keyname = 'kem.key'
 
+
+    def run(self):
         self.server_process = subprocess.Popen(
             ['ip', 'netns', 'exec', 'srv_ns',
              f'./{self.servername}', '--certs', self.certname, '--key', self.keyname, '-p', self.port, 'http'],
@@ -101,13 +102,11 @@ class ServerProcess(multiprocessing.Process):
             bufsize=8192*1024,
         )
 
-
-    def run(self):
         #print(f"[+] Launching server on port {self.port}")
         output_reader = io.TextIOWrapper(self.server_process.stdout, newline='\n')
         measurements = {}
         collected_measurements = []
-        while True:
+        while len(collected_measurements) < MEASUREMENTS_PER_PROCESS:
             line = output_reader.readline()
             if not line:
                 break
@@ -119,7 +118,11 @@ class ServerProcess(multiprocessing.Process):
                 if label == self.last_msg:
                     collected_measurements.append(measurements)
                     measurements = {}
+
         self.pipe.send(collected_measurements)
+
+        self.server_process.terminate()
+        self.server_process.wait(5)
 
 
 def run_measurement(output_queue, path, port, type, cached_int):
@@ -136,41 +139,38 @@ def run_measurement(output_queue, path, port, type, cached_int):
         clientname = 'kemtlsclient'
         caname = 'kem' + ('-int' if cached_int else '-ca') + '.crt'
 
-    measurements = []
-    #print(f"[+] Starting measurements on port {port}")
-    proc_result = subprocess.run(
-        ['ip', 'netns', 'exec', 'cli_ns',
-         f"./{clientname}", '--cafile', caname, '--loops', str(MEASUREMENTS_PER_PROCESS),
-         '--port', port, '--http', hostname],
-        text=True,
-        stdout=subprocess.PIPE,
-        timeout=3 * MEASUREMENTS_PER_PROCESS,
-        check=True,
-        cwd=path,
-    )
-    #print(f"[+] Completed measurements on port {port}")
     client_measurements = []
-    measurement = {}
-    for line in proc_result.stdout.split("\n"):
-        result = TIMER_REGEX.match(line)
-        if result:
-            label = result.group('label')
-            measurement[label] = result.group('timing')
-            if label == LAST_MSG:
-                client_measurements.append(measurement)
-                measurement = {}
+    #print(f"[+] Starting measurements on port {port}")
+    while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive():
+        proc_result = subprocess.run(
+            ['ip', 'netns', 'exec', 'cli_ns',
+             f"./{clientname}", '--cafile', caname,
+             '--loops', str(max(MEASUREMENTS_PER_PROCESS - len(client_measurements), MEASUREMENTS_PER_CLIENT)),
+             '--port', port, '--http', hostname],
+            text=True,
+            stdout=subprocess.PIPE,
+            timeout=3 * MEASUREMENTS_PER_PROCESS,
+            check=False,
+            cwd=path,
+        )
+        #print(f"[+] Completed measurements on port {port}")
+        measurement = {}
+        for line in proc_result.stdout.split("\n"):
+            result = TIMER_REGEX.match(line)
+            if result:
+                label = result.group('label')
+                measurement[label] = result.group('timing')
+                if label == LAST_MSG:
+                    client_measurements.append(measurement)
+                    measurement = {}
 
-    #print(f"[+] Shutting down server on port {port}")
-    server.server_process.terminate()
-    server.server_process.join(5)
     server.join(5)
 
     server_data = outpipe.recv()
-    assert len(server_data) == len(client_measurements) == MEASUREMENTS_PER_PROCESS, \
-            f"{len(server_data)} != {len(client_measurements)} != {MEASUREMENTS_PER_PROCESS}"
+    assert len(server_data) == len(client_measurements), \
+            f"[!] Process on {port} out of sync {len(server_data)} != {len(client_measurements)}"
 
     output_queue.put(list(zip(server_data, client_measurements)))
-    server.close()
 
 
 def experiment_run_timers(path, type, cached_int):
@@ -188,7 +188,7 @@ def experiment_run_timers(path, type, cached_int):
 
     print(f"[+] Joining processes on {path} for {type}")
     for process in processes:
-        process.join()
+        process.join(5)
 
     return results
 
@@ -243,10 +243,10 @@ def main():
                   f"{root} for {rtt_str}ms latency with "
                   f"{'cached intermediate' if cached_int else 'full cert chain'}")
             experiment_path = os.path.join("bin", f"{kex_alg}-{leaf}-{intermediate}-{root}")
-            if cached_int:
-                fileprefix = f"{kex_alg}_{intermediate}_{root}_{rtt_str}ms"
-            else:
-                fileprefix = f"{kex_alg}_{intermediate}_{rtt_str}ms"
+            fileprefix = (f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}")
+            if not cached_int:
+                fileprefix += f"_{root}"
+            fileprefix += f"_{rtt_str}ms"
 
             for pkt_loss in LOSS_RATES:
                 print(f"[+] Measuring loss rate {pkt_loss}")
