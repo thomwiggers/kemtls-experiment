@@ -106,7 +106,7 @@ class ServerProcess(multiprocessing.Process):
         output_reader = io.TextIOWrapper(self.server_process.stdout, newline='\n')
         measurements = {}
         collected_measurements = []
-        while len(collected_measurements) < MEASUREMENTS_PER_PROCESS:
+        while len(collected_measurements) < MEASUREMENTS_PER_PROCESS and self.server_process.poll() is None:
             line = output_reader.readline()
             if not line:
                 break
@@ -122,7 +122,11 @@ class ServerProcess(multiprocessing.Process):
         self.pipe.send(collected_measurements)
 
         self.server_process.terminate()
-        self.server_process.wait(5)
+        try:
+            self.server_process.wait(5)
+        except subprocess.TimeoutExpired:
+            print("Timeout expired while waiting for server on {port} to terminate")
+            self.server_process.kill()
 
 
 def run_measurement(output_queue, path, port, type, cached_int):
@@ -142,17 +146,25 @@ def run_measurement(output_queue, path, port, type, cached_int):
     client_measurements = []
     #print(f"[+] Starting measurements on port {port}")
     while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive():
-        proc_result = subprocess.run(
-            ['ip', 'netns', 'exec', 'cli_ns',
-             f"./{clientname}", '--cafile', caname,
-             '--loops', str(max(MEASUREMENTS_PER_PROCESS - len(client_measurements), MEASUREMENTS_PER_CLIENT)),
-             '--port', port, '--http', hostname],
-            text=True,
-            stdout=subprocess.PIPE,
-            timeout=3 * MEASUREMENTS_PER_PROCESS,
-            check=False,
-            cwd=path,
-        )
+        try:
+            proc_result = subprocess.run(
+                ['ip', 'netns', 'exec', 'cli_ns',
+                 f"./{clientname}", '--cafile', caname,
+                 '--loops', str(min(MEASUREMENTS_PER_PROCESS - len(client_measurements), MEASUREMENTS_PER_CLIENT)),
+                 '--port', port, '--http', hostname],
+                text=True,
+                stdout=subprocess.PIPE,
+                timeout=3 * MEASUREMENTS_PER_CLIENT,
+                check=False,
+                cwd=path,
+            )
+        except subprocess.TimeoutExpired:
+            print("Sever has hung itself, restarting measurements")
+            client_measurements.clear()
+            server.kill()
+            server.join(5)
+            server.start()
+            time.sleep(1)
         #print(f"[+] Completed measurements on port {port}")
         measurement = {}
         for line in proc_result.stdout.split("\n"):
