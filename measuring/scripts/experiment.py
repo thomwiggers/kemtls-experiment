@@ -31,9 +31,10 @@ NUM_PINGS = 50  # for measuring the practical latency
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
+REPETITIONS = 1
 POOL_SIZE = 40
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 600
+MEASUREMENTS_PER_PROCESS = 500
 MEASUREMENTS_PER_CLIENT = 100
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
@@ -264,7 +265,9 @@ def main():
                 print(f"[+] Measuring loss rate {pkt_loss}")
                 change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency_ms)
                 change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency_ms)
-                result = experiment_run_timers(experiment_path, type, cached_int)
+                result = []
+                for _ in range(REPETITIONS):
+                    results += experiment_run_timers(experiment_path, type, cached_int)
                 caching_type = 'int-chain' if not cached_int else 'cached'
                 filename = f'data/{type}-{caching_type}/{fileprefix}_{pkt_loss}.csv'
                 with open(filename, 'w+') as out:
