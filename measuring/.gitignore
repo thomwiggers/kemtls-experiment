@@ -1,4 +1,6 @@
 bin/*
 data/*
+data-*/*
+*.tar.*
 processed/*
 __pycache__

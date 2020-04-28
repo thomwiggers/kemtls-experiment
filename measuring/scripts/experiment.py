@@ -16,27 +16,28 @@ hostname = "servername"
 ALGORITHMS = (
     # Need to specify leaf to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
-    ("sign", "sikep434compressed", "Falcon512", "XMSS", "RainbowIaCyclic"),
-    ("sign", "sikep434compressed", "Falcon512", "RainbowIaCyclic", "RainbowIaCyclic"),
-    ("sign", "kyber512", "Dilithium2", "Dilithium2", "Dilithium2",),
-    ("sign", "ntruhps2048509", "Falcon512", "Falcon512", "Falcon512"),
-    ("kem", "sikep434compressed", "Falcon512", "XMSS", "RainbowIaCyclic"),
-    ("kem", "sikep434compressed", "Falcon512", "RainbowIaCyclic", "RainbowIaCyclic"),
-    ("kem", "kyber512", "Dilithium2", "Dilithium2", "Dilithium2",),
-    ("kem", "ntruhps2048509", "Falcon512", "Falcon512", "Falcon512"),
+    ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
+    ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
+    ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
+    ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    ('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
+    ('kem', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
 )
 
-LATENCIES = ["2.684ms", "15.458ms", "39.224ms", "97.73ms"]
-LOSS_RATES = [0, 0.1]  # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
+LOSS_RATES = [0, 0.1] # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
 NUM_PINGS = 50  # for measuring the practical latency
 
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
-REPETITIONS = 1
+REPETITIONS = 2
 POOL_SIZE = 40
-SERVER_PORTS = [str(port) for port in range(10000, 10000 + POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 500
+SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
+MEASUREMENTS_PER_PROCESS = 400
 MEASUREMENTS_PER_CLIENT = 100
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
@@ -303,10 +304,11 @@ def reverse_resolve_hostname():
     return socket.gethostbyaddr("10.99.0.1")[0]
 
 
-def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, pkt_loss):
+def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss):
     fileprefix = f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
     if not cached_int:
         fileprefix += f"_{root}"
+    fileprefix += "_{rtt_ms}ms"
     caching_type = "int-chain" if not cached_int else "cached"
     filename = f"data/{type}-{caching_type}/{fileprefix}_{pkt_loss}.csv"
     return filename
@@ -349,7 +351,7 @@ def main():
                 change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms)
                 result = []
                 filename = get_filename(
-                    kex_alg, leaf, intermediate, root, type, cached_int, pkt_loss
+                    kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss
                 )
                 for _ in range(REPETITIONS):
                     result += experiment_run_timers(experiment_path, type, cached_int)
