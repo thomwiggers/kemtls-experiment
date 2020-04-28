@@ -21,6 +21,7 @@ ALGORITHMS = (
     ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
+    ('kem', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
     ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
@@ -59,45 +60,15 @@ def run_subprocess(command, working_dir=".", expected_returncode=0):
 def change_qdisc(ns, dev, pkt_loss, delay):
     if pkt_loss == 0:
         command = [
-            "ip",
-            "netns",
-            "exec",
-            ns,
-            "tc",
-            "qdisc",
-            "change",
-            "dev",
-            dev,
-            "root",
-            "netem",
-            "limit",
-            "1000",
-            "delay",
-            delay,
-            "rate",
-            "1000mbit",
+            "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
+            "root", "netem", "limit", "1000", "delay", delay,
+            "rate", "1000mbit",
         ]
     else:
         command = [
-            "ip",
-            "netns",
-            "exec",
-            ns,
-            "tc",
-            "qdisc",
-            "change",
-            "dev",
-            dev,
-            "root",
-            "netem",
-            "limit",
-            "1000",
-            "loss",
-            "{0}%".format(pkt_loss),
-            "delay",
-            delay,
-            "rate",
-            "1000mbit",
+            "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
+            "root", "netem", "limit", "1000", "loss", "{0}%".format(pkt_loss),
+            "delay", delay, "rate", "1000mbit",
         ]
 
     # print(" > " + " ".join(command))
@@ -123,17 +94,11 @@ class ServerProcess(multiprocessing.Process):
     def run(self):
         self.server_process = subprocess.Popen(
             [
-                "ip",
-                "netns",
-                "exec",
-                "srv_ns",
+                "ip", "netns", "exec", "srv_ns",
                 f"./{self.servername}",
-                "--certs",
-                self.certname,
-                "--key",
-                self.keyname,
-                "-p",
-                self.port,
+                "--certs", self.certname,
+                "--key", self.keyname,
+                "-p", self.port,
                 "http",
             ],
             cwd=self.path,
@@ -191,10 +156,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
         try:
             proc_result = subprocess.run(
                 [
-                    "ip",
-                    "netns",
-                    "exec",
-                    "cli_ns",
+                    "ip", "netns", "exec", "cli_ns",
                     f"./{clientname}",
                     "--cafile", caname,
                     "--loops",
@@ -216,6 +178,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
             client_measurements.clear()
             server.kill()
             server.join(5)
+            server = ServerProcess(path, port, type, inpipe, cached_int)
             server.start()
             time.sleep(1)
         # print(f"[+] Completed measurements on port {port}")
@@ -308,7 +271,7 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
     fileprefix = f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
     if not cached_int:
         fileprefix += f"_{root}"
-    fileprefix += "_{rtt_ms}ms"
+    fileprefix += f"_{rtt_ms}ms"
     caching_type = "int-chain" if not cached_int else "cached"
     filename = f"data/{type}-{caching_type}/{fileprefix}_{pkt_loss}.csv"
     return filename
@@ -327,12 +290,12 @@ def main():
         # To get actual (emulated) RTT
         change_qdisc("cli_ns", "cli_ve", 0, delay=latency_ms)
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
-        rtt_str = get_rtt_ms()
+        rtt_ms = get_rtt_ms()
 
         for (type, kex_alg, leaf, intermediate, root) in ALGORITHMS:
             print(
                 f"[+] Experiment for {type} {kex_alg} {leaf} {intermediate} "
-                f"{root} for {rtt_str}ms latency with "
+                f"{root} for {rtt_ms}ms latency with "
                 f"{'cached intermediate' if cached_int else 'full cert chain'}"
             )
             experiment_path = os.path.join(
@@ -343,7 +306,7 @@ def main():
             )
             if not cached_int:
                 fileprefix += f"_{root}"
-            fileprefix += f"_{rtt_str}ms"
+            fileprefix += f"_{rtt_ms}ms"
 
             for pkt_loss in LOSS_RATES:
                 print(f"[+] Measuring loss rate {pkt_loss}")

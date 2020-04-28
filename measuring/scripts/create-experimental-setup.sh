@@ -37,7 +37,4 @@ if ! [ "$KEX_ALG" = "X25519" ]; then
         f=$(basename "$f")
         mv "$volumename/$f" "$volumename/${f/$KEX_ALG/kem}"
     done
-else
-    rm "$volumename/kemtlsserver"
-    rm "$volumename/kemtlsclient"
 fi
