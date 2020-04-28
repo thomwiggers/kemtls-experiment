@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 ROOT=$(dirname $0)/../../
 cd $ROOT
 
@@ -30,7 +32,12 @@ docker run --rm \
              cp /usr/local/bin/*tlsclient . &&
              cp /certs/* ."
 
-for f in $volumename/$KEX_ALG.*; do
-    f=$(basename $f)
-    mv $volumename/$f $volumename/${f/$KEX_ALG/kem}
-done
+if ! [ "$KEX_ALG" = "X25519" ]; then
+    for f in "$volumename/$KEX_ALG".*; do
+        f=$(basename "$f")
+        mv "$volumename/$f" "$volumename/${f/$KEX_ALG/kem}"
+    done
+else
+    rm "$volumename/kemtlsserver"
+    rm "$volumename/kemtlsclient"
+fi

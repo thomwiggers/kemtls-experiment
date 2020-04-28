@@ -3,6 +3,8 @@ set -e
 cd $(dirname $0)
 
 # Signed KEX
+# Classic TLS
+./create-experimental-setup.sh X25519 RSA2048 RSA2048 RSA2048
 # Min w/o cache
 ./create-experimental-setup.sh sikep434compressed Falcon512 XMSS RainbowIaCyclic
 # Min w/ cache (covered below)
