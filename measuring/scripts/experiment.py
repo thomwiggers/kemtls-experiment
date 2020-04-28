@@ -8,6 +8,8 @@ import subprocess
 import itertools
 import time
 import re
+import socket
+
 
 hostname = "servername"
 
@@ -193,17 +195,12 @@ def run_measurement(output_queue, path, port, type, cached_int):
                     "exec",
                     "cli_ns",
                     f"./{clientname}",
-                    "--cafile",
-                    caname,
+                    "--cafile", caname,
                     "--loops",
-                    str(
-                        min(
-                            MEASUREMENTS_PER_PROCESS - len(client_measurements),
-                            MEASUREMENTS_PER_CLIENT,
-                        )
-                    ),
-                    "--port",
-                    port,
+                    str(min(MEASUREMENTS_PER_PROCESS - len(client_measurements),
+                            MEASUREMENTS_PER_CLIENT)),
+                    "--port", port,
+                    "--no-tickets",
                     "--http",
                     hostname,
                 ],
@@ -285,15 +282,15 @@ def get_rtt_ms():
 
 
 def write_result(outfile, results):
-    client_keys = results[0][0].keys()
-    server_keys = results[0][1].keys()
+    server_keys = results[0][0].keys()
+    client_keys = results[0][1].keys()
     keys = [f"client {key.lower()}" for key in client_keys] + [
         f"server {key.lower()}" for key in server_keys
     ]
 
     writer = csv.DictWriter(outfile, keys)
     writer.writeheader()
-    for (client_result, server_result) in results:
+    for (server_result, client_result) in results:
         row = {f"client {key.lower()}": value for (key, value) in client_result.items()}
         row.update(
             {f"server {key.lower()}": value for (key, value) in server_result.items()}
@@ -302,7 +299,6 @@ def write_result(outfile, results):
 
 
 def reverse_resolve_hostname():
-    import socket
 
     return socket.gethostbyaddr("10.99.0.1")[0]
 
