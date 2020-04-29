@@ -17,16 +17,16 @@ ALGORITHMS = (
     # Need to specify leaf to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
     ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    #('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'Gemss128'),
+    #('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    ('sign', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
     ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
     ('kem', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    #('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    ('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    #('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
     ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('kem', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
@@ -43,8 +43,8 @@ NUM_PINGS = 50  # for measuring the practical latency
 REPETITIONS = 2
 POOL_SIZE = 40
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 400
-MEASUREMENTS_PER_CLIENT = 100
+MEASUREMENTS_PER_PROCESS = 100
+MEASUREMENTS_PER_CLIENT = 50
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -191,6 +191,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
         # print(f"[+] Completed measurements on port {port}")
         measurement = {}
         for line in proc_result.stdout.split("\n"):
+            assert 'WebPKIError' not in line
             result = TIMER_REGEX.match(line)
             if result:
                 label = result.group("label")
