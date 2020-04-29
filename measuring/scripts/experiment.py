@@ -281,7 +281,6 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
 
 
 def main():
-    reverse_resolve_hostname()
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=1001, gid=1001)
     for (type, caching) in itertools.product(["kem", "sign"], ["int-chain", "cached"]):
@@ -289,13 +288,13 @@ def main():
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)
 
-    for (cached_int, latency_ms) in itertools.product([True, False], LATENCIES):
+    for latency_ms in LATENCIES:
         # To get actual (emulated) RTT
         change_qdisc("cli_ns", "cli_ve", 0, delay=latency_ms)
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for (type, kex_alg, leaf, intermediate, root) in ALGORITHMS:
+        for (cached_int, (type, kex_alg, leaf, intermediate, root)) in itertools.product([True, False], ALGORITHMS):
             print(
                 f"[+] Experiment for {type} {kex_alg} {leaf} {intermediate} "
                 f"{root} for {rtt_ms}ms latency with "
@@ -304,13 +303,6 @@ def main():
             experiment_path = os.path.join(
                 "bin", f"{kex_alg}-{leaf}-{intermediate}-{root}"
             )
-            fileprefix = (
-                f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
-            )
-            if not cached_int:
-                fileprefix += f"_{root}"
-            fileprefix += f"_{rtt_ms}ms"
-
             for pkt_loss in LOSS_RATES:
                 print(f"[+] Measuring loss rate {pkt_loss}")
                 change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms)

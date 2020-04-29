@@ -44,15 +44,15 @@ AVG_FIELDS = [
     'measurements',
     # client keys
     *chain.from_iterable(
-        (f'server {key}', f'server {key} stdev')
+        (f'client {key}', f'client {key} stdev')
         for key in
         ['emitted ch', 'derived ephemeral keys', 'received sh',
          'encapsulating to server', 'submitted ckex to server',
          'switched to ahs keys', 'client encrypting traffic',
          'authenticated server', 'handshake completed']),
-    # server keys (they're switched for now)
+    # server keys
     *chain.from_iterable(
-        (f'client {key}', f'client {key} stdev')
+        (f'server {key}', f'server {key} stdev')
         for key in
         ['encapsulated ephemeral', 'emitted sh', 'derived ephemeral keys',
          'decapsulated from client', 'switched to ahs keys',
