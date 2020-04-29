@@ -152,7 +152,9 @@ def run_measurement(output_queue, path, port, type, cached_int):
 
     client_measurements = []
     # print(f"[+] Starting measurements on port {port}")
-    while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive():
+    restarts = 0
+    allowed_restarts = 2 * MEASUREMENTS_PER_PROCESS / MEASUREMENTS_PER_CLIENT
+    while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive() and restarts < allowed_restarts:
         try:
             proc_result = subprocess.run(
                 [
@@ -169,7 +171,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
                 ],
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=3 * MEASUREMENTS_PER_CLIENT,
+                timeout=2 * MEASUREMENTS_PER_CLIENT,
                 check=False,
                 cwd=path,
             )
@@ -191,6 +193,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
                 if label == LAST_MSG:
                     client_measurements.append(measurement)
                     measurement = {}
+        restarts += 1
 
     server.join(5)
 
