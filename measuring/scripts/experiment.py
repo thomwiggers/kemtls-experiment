@@ -9,42 +9,48 @@ import itertools
 import time
 import re
 import socket
+import logging
+import datetime
 
 
 hostname = "servername"
 
 ALGORITHMS = (
-    # Need to specify leaf to construct correct binary directory
+    # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
     ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    #('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    #('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('sign', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
     ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
+    ('sign', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
     ('kem', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    #('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    #('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    ('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
     ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('kem', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
+    ('kem', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
 )
 
-#LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
+# Original set of latencies
+# LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
 LATENCIES = ['15.458ms', '97.73ms']
-LOSS_RATES = [0, 5]     # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+LOSS_RATES = [0, 1]     # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
 NUM_PINGS = 50  # for measuring the practical latency
 
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
-REPETITIONS = 2
+ITERATIONS = 4
 POOL_SIZE = 40
+START_PORT = 10000
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 100
-MEASUREMENTS_PER_CLIENT = 50
+MEASUREMENTS_PER_PROCESS = 300
+MEASUREMENTS_PER_CLIENT = 100
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -76,7 +82,7 @@ def change_qdisc(ns, dev, pkt_loss, delay):
             "delay", delay, "rate", "1000mbit",
         ]
 
-    # print(" > " + " ".join(command))
+    logging.debug(" > " + " ".join(command))
     run_subprocess(command)
 
 
@@ -111,7 +117,7 @@ class ServerProcess(multiprocessing.Process):
             bufsize=8192 * 1024,
         )
 
-        # print(f"[+] Launching server on port {self.port}")
+        logging.debug(f"Launching server on port {self.port}")
         output_reader = io.TextIOWrapper(self.server_process.stdout, newline="\n")
         measurements = {}
         collected_measurements = []
@@ -137,7 +143,7 @@ class ServerProcess(multiprocessing.Process):
         try:
             self.server_process.wait(5)
         except subprocess.TimeoutExpired:
-            print("Timeout expired while waiting for server on {port} to terminate")
+            logging.warning("Timeout expired while waiting for server on {port} to terminate")
             self.server_process.kill()
 
 
@@ -156,10 +162,10 @@ def run_measurement(output_queue, path, port, type, cached_int):
         caname = "kem" + ("-int" if cached_int else "-ca") + ".crt"
 
     client_measurements = []
-    # print(f"[+] Starting measurements on port {port}")
     restarts = 0
     allowed_restarts = 2 * MEASUREMENTS_PER_PROCESS / MEASUREMENTS_PER_CLIENT
     while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive() and restarts < allowed_restarts:
+        logging.debug(f"Starting measurements on port {port}")
         try:
             proc_result = subprocess.run(
                 [
@@ -176,19 +182,22 @@ def run_measurement(output_queue, path, port, type, cached_int):
                 ],
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=2 * MEASUREMENTS_PER_CLIENT,
+                timeout=10 * MEASUREMENTS_PER_CLIENT,
                 check=False,
                 cwd=path,
             )
-        except subprocess.TimeoutExpired:
-            print("Sever has hung itself, restarting measurements")
+        except subprocess.TimeoutExpired as e:
+            logging.exception("Sever has hung itself, restarting measurements")
             client_measurements.clear()
+            server.terminate()
             server.kill()
+            time.sleep(15)
             server.join(5)
             server = ServerProcess(path, port, type, inpipe, cached_int)
             server.start()
-            time.sleep(1)
-        # print(f"[+] Completed measurements on port {port}")
+            continue
+
+        logging.debug(f"Completed measurements on port {port}")
         measurement = {}
         for line in proc_result.stdout.split("\n"):
             assert 'WebPKIError' not in line
@@ -219,7 +228,7 @@ def experiment_run_timers(path, type, cached_int):
         for args in tasks
     ]
     results = []
-    print(f"[+] Starting processes on {path} for {type}")
+    logging.debug(f"Starting processes on {path} for {type}")
     for process in processes:
         process.start()
 
@@ -227,7 +236,7 @@ def experiment_run_timers(path, type, cached_int):
     for _i in range(len(processes)):
         results.extend(output_queue.get())
 
-    print(f"[+] Joining processes on {path} for {type}")
+    logging.debug(f"Joining processes on {path} for {type}")
     for process in processes:
         process.join(5)
 
@@ -235,7 +244,7 @@ def experiment_run_timers(path, type, cached_int):
 
 
 def get_rtt_ms():
-    print("[+] Pinging")
+    logging.info("Pinging")
     command = [
         "ip",
         "netns",
@@ -247,7 +256,7 @@ def get_rtt_ms():
         str(NUM_PINGS),
     ]
 
-    # print(" > " + " ".join(command))
+    logging.debug(" > " + " ".join(command))
     result = run_subprocess(command)
 
     result_fmt = result.splitlines()[-1].split("/")
@@ -300,30 +309,35 @@ def main():
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for (cached_int, (type, kex_alg, leaf, intermediate, root)) in itertools.product([True, False], ALGORITHMS):
-            print(
-                f"[+] Experiment for {type} {kex_alg} {leaf} {intermediate} "
+        for ((type, kex_alg, leaf, intermediate, root), cached_int, pkt_loss) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES):
+            logging.info(
+                f"Experiment for {type} {kex_alg} {leaf} {intermediate} "
                 f"{root} for {rtt_ms}ms latency with "
-                f"{'cached intermediate' if cached_int else 'full cert chain'}"
+                f"{'cached intermediate' if cached_int else 'full cert chain'} "
+                f"and {pkt_loss}% loss"
             )
             experiment_path = os.path.join(
                 "bin", f"{kex_alg}-{leaf}-{intermediate}-{root}"
             )
-            for pkt_loss in LOSS_RATES:
-                print(f"[+] Measuring loss rate {pkt_loss}")
-                change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms)
-                change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms)
-                result = []
-                filename = get_filename(
-                    kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss
-                )
-                for _ in range(REPETITIONS):
-                    result += experiment_run_timers(experiment_path, type, cached_int)
-                with open(filename, "w+") as out:
-                    write_result(out, result)
-                os.chown(filename, uid=1001, gid=1001)
+
+            change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms)
+            change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms)
+            result = []
+            filename = get_filename(
+                kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss
+            )
+            start_time = datetime.datetime.utcnow()
+            for _ in range(ITERATIONS):
+                result += experiment_run_timers(experiment_path, type, cached_int)
+            duration = datetime.datetime.utcnow() - start_time
+            logging.info("took %s", duration)
+
+            with open(filename, "w+") as out:
+                write_result(out, result)
+            os.chown(filename, uid=1001, gid=1001)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO)
     hostname = reverse_resolve_hostname()
     main()

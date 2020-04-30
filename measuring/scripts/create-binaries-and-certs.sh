@@ -15,6 +15,8 @@ cd $(dirname $0)
 #./create-experimental-setup.sh kyber512 Dilithium2 Dilithium2 Dilithium2
 # Ass: NTRU (covered below)
 #./create-experimental-setup.sh ntruhps2048509 Falcon512 Falcon512 Falcon512
+# Minimal assumptions
+./create-experimental-setup.sh kyber512 Dilithium2 XMSS XMSS
 
 # KEM-TLS
 # Min w/o cache (covered above)
