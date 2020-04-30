@@ -1,3 +1,6 @@
+# Author: Thom Wiggers <thom@thomwiggers.nl>
+# LICENSE: CC0
+#
 FROM rust:latest AS builder
 
 SHELL ["/bin/bash", "-c"]

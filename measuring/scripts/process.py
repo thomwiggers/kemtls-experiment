@@ -33,8 +33,9 @@ def get_averages(filename):
             sums[key].append(int(val)/1000)      # convert to microseconds
     results = {}
     for key in sums.keys():
-        results[f'{key} stdev'] = statistics.stdev(sums[key])
-        results[key] = statistics.mean(sums[key])
+        results[key] = mean = statistics.mean(sums[key])
+        results[f'{key} stdev'] = stdev = statistics.stdev(sums[key])
+        results[f'{key} rel stdev'] = stdev / mean * 100
 
     return (dict(results), len(sums[key]))
 
@@ -44,7 +45,7 @@ AVG_FIELDS = [
     'measurements',
     # client keys
     *chain.from_iterable(
-        (f'client {key}', f'client {key} stdev')
+        (f'client {key}', f'client {key} stdev', f'client {key} rel stdev')
         for key in
         ['emitted ch', 'derived ephemeral keys', 'received sh',
          'encapsulating to server', 'submitted ckex to server',
@@ -52,7 +53,7 @@ AVG_FIELDS = [
          'authenticated server', 'handshake completed']),
     # server keys
     *chain.from_iterable(
-        (f'server {key}', f'server {key} stdev')
+        (f'server {key}', f'server {key} stdev', f'server {key} rel stdev')
         for key in
         ['encapsulated ephemeral', 'emitted sh', 'derived ephemeral keys',
          'decapsulated from client', 'switched to ahs keys',
@@ -66,6 +67,7 @@ def write_averages(experiments):
         writer = csv.DictWriter(f, fieldnames=AVG_FIELDS)
         writer.writeheader()
         for (filename, experiment) in experiments:
+            print(f"processing {filename}")
             (avgs, count) = get_averages(filename)
             avgs['measurements'] = count
             avgs.update(experiment)
