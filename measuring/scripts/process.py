@@ -10,6 +10,13 @@ import statistics
 
 
 DATAPATH = pathlib.Path(__file__).parent.absolute().parent / 'data'
+PROCESSED_PATH = DATAPATH / '..' / 'processed'
+
+def get_experiment_name(kex, leaf, inter, root):
+    if kex == 'X25519':
+        kex = 'E'
+
+    return f"{kex[0]}{leaf[0]}{inter[0]}{root[0] if root else ''}".upper()
 
 
 def read_csv_lines(filename):
@@ -41,8 +48,8 @@ def get_averages(filename):
 
 
 AVG_FIELDS = [
-    'type', 'kex', 'leaf', 'int', 'root', 'cached_int', 'rtt', 'drop_rate',
-    'measurements',
+    'type', 'kex', 'leaf', 'int', 'root', 'cached_int', 'rtt', 'drop_rate', 'rate',
+    'measurements', 'name',
     # client keys
     *chain.from_iterable(
         (f'client {key}', f'client {key} stdev', f'client {key} rel stdev')
@@ -62,22 +69,47 @@ AVG_FIELDS = [
 ]
 
 
+def format_results_tex(avgs):
+    latency = avgs['rtt']
+    loss = avgs['drop_rate']
+
+    macro_name_base = f"res{avgs['name']}"
+
+    def macro(name, number):
+        number = "%0.1f" % (number/1000)
+        return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}ms}}""\n"
+
+    with open(PROCESSED_PATH / f'processed_results_{latency}_{loss}.tex',
+              'a+') as texfile:
+        if avgs['type'] == 'kem':
+            texfile.write(
+                macro('encrypting', avgs['client client encrypting traffic']))
+        elif avgs['type'] == 'sign':
+            texfile.write(
+                macro('encrypting', avgs['client handshake completed']))
+
+        texfile.write(macro('clientdone', avgs['client handshake completed']))
+        texfile.write(macro('serverdone', avgs['server handshake completed']))
+
+
+
 def write_averages(experiments):
-    with open(DATAPATH / '..' / 'processed' / 'avgs.csv', 'w+') as f:
-        writer = csv.DictWriter(f, fieldnames=AVG_FIELDS)
+    with open(PROCESSED_PATH / 'avgs.csv', 'w+') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=AVG_FIELDS)
         writer.writeheader()
         for (filename, experiment) in experiments:
-            print(f"processing {filename}")
             (avgs, count) = get_averages(filename)
+            print(f"processed{filename} and got {count} points")
             avgs['measurements'] = count
             avgs.update(experiment)
             writer.writerow(avgs)
+            format_results_tex(avgs)
 
 
 EXPERIMENT_REGEX = re.compile(
         r"(?P<type>(kem|sign))-(?P<cached>(int-chain|cached))/"
         r"(?P<kex>[^_]+)_(?P<leaf>[^_]+)_(?P<int>[^_]+)(_(?P<root>[^_]+))?"
-        r"_(?P<rtt>\d+\.\d+)ms_(?P<drop_rate>\d+(\.\d+)?).csv"
+        r"_(?P<rtt>\d+\.\d+)ms_(?P<drop_rate>\d+(\.\d+)?)_(?P<rate>\d+mbit).csv"
         )
 
 def get_experiments():
@@ -87,8 +119,11 @@ def get_experiments():
         matches = EXPERIMENT_REGEX.match(relpath)
         experiment = {}
         experiment['cached_int'] = matches.group('cached') == 'cached'
-        for item in ['type', 'kex', 'leaf', 'int', 'root', 'rtt', 'drop_rate']:
+        for item in ['type', 'kex', 'leaf', 'int', 'root', 'rtt', 'drop_rate', 'rate']:
             experiment[item] = matches.group(item)
+        experiment['name'] = get_experiment_name(
+            experiment['kex'], experiment['leaf'],
+            experiment['int'], experiment['root'])
 
         experiments.append((filename, experiment))
     return experiments
