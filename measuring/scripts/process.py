@@ -72,14 +72,15 @@ AVG_FIELDS = [
 def format_results_tex(avgs):
     latency = avgs['rtt']
     loss = avgs['drop_rate']
+    rate = avgs['rate']
 
     macro_name_base = f"res{avgs['name']}"
 
     def macro(name, number):
         number = "%0.1f" % (number/1000)
-        return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}ms}}""\n"
+        return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}""\n"
 
-    with open(PROCESSED_PATH / f'processed_results_{latency}_{loss}.tex',
+    with open(PROCESSED_PATH / f'processed_results_{latency}_{loss}_{rate}.tex',
               'a+') as texfile:
         if avgs['type'] == 'kem':
             texfile.write(
@@ -117,6 +118,7 @@ def get_experiments():
     for filename in DATAPATH.glob("*/*.csv"):
         relpath = str(filename.relative_to(DATAPATH))
         matches = EXPERIMENT_REGEX.match(relpath)
+        assert matches
         experiment = {}
         experiment['cached_int'] = matches.group('cached') == 'cached'
         for item in ['type', 'kex', 'leaf', 'int', 'root', 'rtt', 'drop_rate', 'rate']:

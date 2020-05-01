@@ -36,6 +36,9 @@ WORKDIR /usr/src/pqtls/mk-cert/kemutil
 RUN echo "pub use pqcrypto::kem::kyber512::*;" > src/kem.rs
 RUN cargo build --release --features pqclean
 
+WORKDIR /usr/src/pqtls/mk-cert/xmss-rs
+RUN cargo build --release
+
 WORKDIR /usr/src/pqtls/rustls-kemtls/rustls-mio
 RUN cargo build --release --examples
 WORKDIR /usr/src/pqtls/rustls-pqtls/rustls-mio
