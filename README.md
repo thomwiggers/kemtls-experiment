@@ -8,6 +8,33 @@ TBD. _Post-Quantum TLS without handshake signatures_ TBD.
 BIBTEX TO APPEAR HERE
 ```
 
+## Overview of this repository
+
+### Main folders
+
+* ``rustls-kemtls``: modified Rustls TLS stack to implement KEMTLS
+* ``rustls-pqtls``: Rustls with support for KEM kex and PQ signature schemes
+* ``measuring``: The scripts to measure the above
+* ``ring``: Modified version of Ring to work with KEMs and PQ signatures
+* ``webpki``: Modified version of WebPKI to work with PQ and KEM public keys in certificates
+* ``mk-cert``: Utility scripts to create post-quantum PKI for pqtls and KEMTLS
+
+### Supporting repositories
+
+* ``oqs-rs``: Rust wrapper around ``liboqs``.
+    * ``oqs-rs/oqs-sys/liboqs`` is a version of ``liboqs`` with additional (AVX2) implementations
+* ``pqcrypto``: Rust wrappers around ``PQClean``
+    * ``pqcrypto/pqclean``: Modified version of PQClean with additional (AVX2) implementations
+* ``mk-cert/xmss-rs``: Rust wrapper around the XMSS reference code, with our custom parameter set (``src/settings.rs``) and utilities for keygen and signing.
+* ``csidh-rust``: Rust wrapper around the Meyer, Campos, Reith constant-time implementation of CSIDH.
+
+### Dependencies necessary for compilation
+The following repositories were mostly necessary for compiling ``ring`` and ``rustls``.
+
+* ``sct.rs``: dependency of Rustls that would otherwise pull in non-modified ``ring``.
+* ``webpki-roots``: dependendcy of WebPKI that would otherwise pull in non-modified ``ring``.
+* ``tls-hacking``: Contains a generator for the `src/msgs/enums.rs`` file in ``rustls``.
+
 ## Working with this repository
 
 * **MAKE SURE TO CLONE WITH __ALL__ SUBMODULES**. There are submodules _within_ submodules, so clone with ``--recurse-submodules``.
