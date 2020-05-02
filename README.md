@@ -28,7 +28,8 @@ BIBTEX TO APPEAR HERE
 * ``mk-cert/xmss-rs``: Rust wrapper around the XMSS reference code, with our custom parameter set (``src/settings.rs``) and utilities for keygen and signing.
 * ``csidh-rust``: Rust wrapper around the Meyer, Campos, Reith constant-time implementation of CSIDH.
 
-### Dependencies necessary for compilation
+### Miscelaneous dependencies
+
 The following repositories were mostly necessary for compiling ``ring`` and ``rustls``.
 
 * ``sct.rs``: dependency of Rustls that would otherwise pull in non-modified ``ring``.
