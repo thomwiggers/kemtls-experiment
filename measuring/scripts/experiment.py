@@ -41,16 +41,17 @@ ALGORITHMS = (
 LATENCIES = ['15.458ms', '97.73ms']
 LOSS_RATES = [0, 1]     # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
 NUM_PINGS = 50  # for measuring the practical latency
+SPEEDS = [1000, 10]
 
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
-ITERATIONS = 4
+ITERATIONS = 5
 POOL_SIZE = 40
 START_PORT = 10000
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 300
-MEASUREMENTS_PER_CLIENT = 100
+MEASUREMENTS_PER_PROCESS = 500
+MEASUREMENTS_PER_CLIENT = 50
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -68,18 +69,18 @@ def run_subprocess(command, working_dir=".", expected_returncode=0):
     return result.stdout
 
 
-def change_qdisc(ns, dev, pkt_loss, delay):
+def change_qdisc(ns, dev, pkt_loss, delay, rate=1000):
     if pkt_loss == 0:
         command = [
             "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
             "root", "netem", "limit", "1000", "delay", delay,
-            "rate", "1000mbit",
+            "rate", f"{rate}mbit",
         ]
     else:
         command = [
             "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
             "root", "netem", "limit", "1000", "loss", "{0}%".format(pkt_loss),
-            "delay", delay, "rate", "1000mbit",
+            "delay", delay, "rate", f"{rate}mbit",
         ]
 
     logging.debug(" > " + " ".join(command))
@@ -143,7 +144,7 @@ class ServerProcess(multiprocessing.Process):
         try:
             self.server_process.wait(5)
         except subprocess.TimeoutExpired:
-            logging.warning("Timeout expired while waiting for server on {port} to terminate")
+            logging.exception("Timeout expired while waiting for server on {port} to terminate")
             self.server_process.kill()
 
 
@@ -182,7 +183,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
                 ],
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=10 * MEASUREMENTS_PER_CLIENT,
+                timeout=50 * MEASUREMENTS_PER_CLIENT,
                 check=False,
                 cwd=path,
             )
@@ -285,13 +286,13 @@ def reverse_resolve_hostname():
     return socket.gethostbyaddr("10.99.0.1")[0]
 
 
-def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss):
+def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate):
     fileprefix = f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
     if not cached_int:
         fileprefix += f"_{root}"
     fileprefix += f"_{rtt_ms}ms"
     caching_type = "int-chain" if not cached_int else "cached"
-    filename = f"data/{type}-{caching_type}/{fileprefix}_{pkt_loss}.csv"
+    filename = f"data/{type}-{caching_type}/{fileprefix}_{pkt_loss}_{rate}mbit.csv"
     return filename
 
 
@@ -309,22 +310,22 @@ def main():
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for ((type, kex_alg, leaf, intermediate, root), cached_int, pkt_loss) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES):
+        for ((type, kex_alg, leaf, intermediate, root), cached_int, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
             logging.info(
                 f"Experiment for {type} {kex_alg} {leaf} {intermediate} "
                 f"{root} for {rtt_ms}ms latency with "
                 f"{'cached intermediate' if cached_int else 'full cert chain'} "
-                f"and {pkt_loss}% loss"
+                f"and {pkt_loss}% loss on {rate}mbit"
             )
             experiment_path = os.path.join(
                 "bin", f"{kex_alg}-{leaf}-{intermediate}-{root}"
             )
 
-            change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms)
-            change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms)
+            change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
+            change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)
             result = []
             filename = get_filename(
-                kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss
+                kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):

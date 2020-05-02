@@ -21,4 +21,7 @@ else
     echo "Delete bin folder to recreate stuff"
 fi
 
+sudo killall -9 kemtlsserver  || true
+sudo killall -9 pqtlsserver   || true
+
 ntfy done sudo python3 scripts/experiment.py
