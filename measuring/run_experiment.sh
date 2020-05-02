@@ -2,6 +2,9 @@
 
 set -e
 
+echo "Make sure to setup the namespaces beforehand."
+echo "Run ./scripts/setup_ns.sh"
+
 echo "This will remove the current experiment data!"
 read -p "Are you sure? " -n 1 -r
 echo    # (optional) move to a new line
