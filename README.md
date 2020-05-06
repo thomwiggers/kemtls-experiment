@@ -7,7 +7,7 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
 ```
 @unpublished{EPRINT:SchSteWig20,
   author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
-  title = {Post-quantum TLS without handshake signatures},
+  title = {Post-quantum {TLS} without handshake signatures},
   year = 2020,
   month = may,
   note = {preprint on {IACR} {ePrint} archive},
