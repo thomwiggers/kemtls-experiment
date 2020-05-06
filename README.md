@@ -2,10 +2,17 @@
 
 This repository accompanies
 
-TBD. _Post-Quantum TLS without handshake signatures_ TBD.
+Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/XXX. May 2020.
 
 ```
-BIBTEX TO APPEAR HERE
+@unpublished{EPRINT:SchSteWig20,
+  author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
+  title = {Post-quantum TLS without handshake signatures},
+  year = 2020,
+  month = may,
+  note = {preprint on {IACR} {ePrint} archive},
+  url = {FIXME},
+}
 ```
 
 ## Overview of this repository
