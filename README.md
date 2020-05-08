@@ -2,7 +2,7 @@
 
 This repository accompanies
 
-Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/XXX. May 2020.
+Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/534. May 2020.
 
 ```
 @unpublished{EPRINT:SchSteWig20,
@@ -11,7 +11,7 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
   year = 2020,
   month = may,
   note = {preprint on {IACR} {ePrint} archive},
-  url = {FIXME},
+  url = {https://ia.cr/2020/534},
 }
 ```
 
