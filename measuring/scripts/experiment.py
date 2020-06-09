@@ -19,27 +19,27 @@ ALGORITHMS = (
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
     ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    #('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    #('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('sign', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
     ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
-    ('sign', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
+    #('sign', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
     ('kem', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
+    #('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    ('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
+    #('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
     ('kem', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
     ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
     ('kem', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
-    ('kem', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
+    #('kem', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
 )
 
 # Original set of latencies
 # LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
-LATENCIES = ['15.458ms', '97.73ms']
-LOSS_RATES = [0, 1]     # 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
+LOSS_RATES = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
 NUM_PINGS = 50  # for measuring the practical latency
 SPEEDS = [1000, 10]
 
