@@ -154,7 +154,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
     server.start()
     time.sleep(1)
 
-    LAST_MSG = "HANDSHAKE COMPLETED"
+    LAST_MSG = "RECEIVED SERVER REPLY"
     if type == "sign":
         clientname = "pqtlsclient"
         caname = "signing" + ("-int" if cached_int else "-ca") + ".crt"
