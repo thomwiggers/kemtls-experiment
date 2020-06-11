@@ -57,7 +57,7 @@ AVG_FIELDS = [
         ['emitted ch', 'derived ephemeral keys', 'received sh',
          'encapsulating to server', 'submitted ckex to server',
          'switched to ahs keys', 'client encrypting traffic',
-         'authenticated server', 'handshake completed']),
+         'authenticated server', 'handshake completed', 'received server reply']),
     # server keys
     *chain.from_iterable(
         (f'server {key}', f'server {key} stdev', f'server {key} rel stdev')
