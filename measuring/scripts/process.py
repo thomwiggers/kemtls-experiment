@@ -7,6 +7,7 @@ import os
 import pathlib
 import re
 import statistics
+import multiprocessing
 
 
 DATAPATH = pathlib.Path(__file__).parent.absolute().parent / 'data'
@@ -91,18 +92,26 @@ def format_results_tex(avgs):
 
         texfile.write(macro('clientdone', avgs['client handshake completed']))
         texfile.write(macro('serverdone', avgs['server handshake completed']))
+        texfile.write(macro('clientgotreply', avgs['client received server reply']))
 
+
+def process_experiment(experiment):
+    (filename, experiment) = experiment
+    (avgs, count) = get_averages(filename)
+    print(f"processed {filename} and got {count} points")
+    avgs['measurements'] = count
+    avgs.update(experiment)
+    return avgs
 
 
 def write_averages(experiments):
+    with multiprocessing.Pool() as p:
+        avgses = p.map(process_experiment, experiments)
+
     with open(PROCESSED_PATH / 'avgs.csv', 'w+') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=AVG_FIELDS)
         writer.writeheader()
-        for (filename, experiment) in experiments:
-            (avgs, count) = get_averages(filename)
-            print(f"processed{filename} and got {count} points")
-            avgs['measurements'] = count
-            avgs.update(experiment)
+        for avgs in avgses:
             writer.writerow(avgs)
             format_results_tex(avgs)
 
@@ -114,21 +123,22 @@ EXPERIMENT_REGEX = re.compile(
         )
 
 def get_experiments():
-    experiments = []
-    for filename in DATAPATH.glob("*/*.csv"):
-        relpath = str(filename.relative_to(DATAPATH))
-        matches = EXPERIMENT_REGEX.match(relpath)
-        assert matches
-        experiment = {}
-        experiment['cached_int'] = matches.group('cached') == 'cached'
-        for item in ['type', 'kex', 'leaf', 'int', 'root', 'rtt', 'drop_rate', 'rate']:
-            experiment[item] = matches.group(item)
-        experiment['name'] = get_experiment_name(
-            experiment['kex'], experiment['leaf'],
-            experiment['int'], experiment['root'])
+    filenames = DATAPATH.glob("*/*.csv")
+    return [(filename, get_experiment(filename)) for filename in filenames]
 
-        experiments.append((filename, experiment))
-    return experiments
+def get_experiment(filename):
+    relpath = str(filename.relative_to(DATAPATH))
+    matches = EXPERIMENT_REGEX.match(relpath)
+    assert matches
+    experiment = {}
+    experiment['cached_int'] = matches.group('cached') == 'cached'
+    for item in ['type', 'kex', 'leaf', 'int', 'root', 'rtt', 'drop_rate', 'rate']:
+        experiment[item] = matches.group(item)
+    experiment['name'] = get_experiment_name(
+        experiment['kex'], experiment['leaf'],
+        experiment['int'], experiment['root'])
+
+    return experiment
 
 
 def main():
