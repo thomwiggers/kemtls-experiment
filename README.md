@@ -41,7 +41,7 @@ The following repositories were mostly necessary for compiling ``ring`` and ``ru
 
 * ``sct.rs``: dependency of Rustls that would otherwise pull in non-modified ``ring``.
 * ``webpki-roots``: dependendcy of WebPKI that would otherwise pull in non-modified ``ring``.
-* ``tls-hacking``: Contains a generator for the `src/msgs/enums.rs`` file in ``rustls``.
+* ``tls-hacking``: Contains a generator for the ``src/msgs/enums.rs`` file in ``rustls``.
 
 ## Working with this repository
 
@@ -55,3 +55,4 @@ The following repositories were mostly necessary for compiling ``ring`` and ``ru
    and run ``cargo run --example tlsserver -- --help`` or ``cargo run --example tlsclient -- --help``.
 * The measurement setup is handled in the `measuring/` folder. See the `./run_experiment.sh` script.
 * Processing of results is done by the `./scripts/process.py` folder. It expects a `data` folder as produced by `./scripts/experiment.py`.
+* Downloading archived results can be done through the scripts in ``measuring/archived-results/``
