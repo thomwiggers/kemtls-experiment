@@ -63,7 +63,7 @@ AVG_FIELDS = [
         (f'server {key}', f'server {key} stdev')
         for key in
         ['encapsulated ephemeral', 'emitted sh', 'derived ephemeral keys',
-         'decapsulated from client', 'switched to ahs keys',
+         'received ckex', 'decapsulated ckex', 'switched to ahs keys',
          'emitted sf', 'server encrypting traffic', 'server reading traffic',
          'handshake completed']),
 ]
