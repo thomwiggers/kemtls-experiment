@@ -41,9 +41,8 @@ def get_averages(filename):
             sums[key].append(int(val)/1000)      # convert to microseconds
     results = {}
     for key in sums.keys():
-        results[key] = mean = statistics.mean(sums[key])
-        results[f'{key} stdev'] = stdev = statistics.stdev(sums[key])
-        results[f'{key} rel stdev'] = stdev / mean * 100
+        results[key] = statistics.mean(sums[key])
+        results[f'{key} stdev'] = statistics.stdev(sums[key])
 
     return (dict(results), len(sums[key]))
 
@@ -53,7 +52,7 @@ AVG_FIELDS = [
     'measurements', 'name',
     # client keys
     *chain.from_iterable(
-        (f'client {key}', f'client {key} stdev', f'client {key} rel stdev')
+        (f'client {key}', f'client {key} stdev')
         for key in
         ['emitted ch', 'derived ephemeral keys', 'received sh',
          'encapsulating to server', 'submitted ckex to server',
@@ -61,7 +60,7 @@ AVG_FIELDS = [
          'authenticated server', 'handshake completed', 'received server reply']),
     # server keys
     *chain.from_iterable(
-        (f'server {key}', f'server {key} stdev', f'server {key} rel stdev')
+        (f'server {key}', f'server {key} stdev')
         for key in
         ['encapsulated ephemeral', 'emitted sh', 'derived ephemeral keys',
          'decapsulated from client', 'switched to ahs keys',
