@@ -60,12 +60,12 @@ RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^^}'@' /usr/src/pq
 
 # Compile tlsserver and tlsclient examples
 WORKDIR /usr/src/pqtls/rustls-kemtls/rustls-mio/
-RUN cargo build --release --example tlsserver && \
-    cargo build --release --example tlsclient
+RUN cargo build --release --example server && \
+    cargo build --release --example client
 
 WORKDIR /usr/src/pqtls/rustls-pqtls/rustls-mio/
-RUN cargo build --release --example tlsserver && \
-    cargo build --release --example tlsclient
+RUN cargo build --release --example server && \
+    cargo build --release --example client
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from pqclean / oqs)
@@ -88,10 +88,10 @@ RUN apt-get update -qq \
  && apt-get install -qq -y libssl1.1 \
  && rm -rf /var/cache/apt
 
-COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/kemtlsserver
-COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/kemtlsclient
-COPY --from=builder /usr/src/pqtls/rustls-pqtls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/pqtlsserver
-COPY --from=builder /usr/src/pqtls/rustls-pqtls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/pqtlsclient
+COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/server /usr/local/bin/kemtlsserver
+COPY --from=builder /usr/src/pqtls/rustls-kemtls/rustls-mio/target/release/examples/client /usr/local/bin/kemtlsclient
+COPY --from=builder /usr/src/pqtls/rustls-pqtls/rustls-mio/target/release/examples/server /usr/local/bin/pqtlsserver
+COPY --from=builder /usr/src/pqtls/rustls-pqtls/rustls-mio/target/release/examples/client /usr/local/bin/pqtlsclient
 COPY --from=builder /usr/src/pqtls/mk-cert/*.crt /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.key /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.pub /certs/
