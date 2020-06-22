@@ -26,8 +26,9 @@ def read_csv_lines(filename):
         reader = csv.DictReader(file_)
         for line in reader:
             valid = True
-            for val in line.values():
+            for key, val in line.items():
                 if not val:
+                    print("Invalid value for {} on line {}".format(key, line))
                     valid = False
                     break
             if valid:
