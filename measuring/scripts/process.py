@@ -112,6 +112,8 @@ def write_averages(experiments):
         writer = csv.DictWriter(csvfile, fieldnames=AVG_FIELDS)
         writer.writeheader()
         for avgs in avgses:
+            print(f"{avgs['name']}: Server reply: {avgs['client received server reply']}")
+            print(f"{avgs['name']}: Server done: {avgs['server handshake completed']}")
             writer.writerow(avgs)
             format_results_tex(avgs)
 
