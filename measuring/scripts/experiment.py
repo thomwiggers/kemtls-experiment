@@ -139,6 +139,7 @@ class ServerProcess(multiprocessing.Process):
                     measurements = {}
 
         self.pipe.send(collected_measurements)
+        time.sleep(1)
 
         self.server_process.terminate()
         try:
