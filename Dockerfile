@@ -8,13 +8,12 @@ SHELL ["/bin/bash", "-c"]
 EXPOSE 8443 443/tcp
 
 ADD https://apt.llvm.org/llvm-snapshot.gpg.key /llvm.key
+RUN apt-key add /llvm.key
 
 # Install requirements
-RUN apt-key add /llvm.key \
- && echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster main" >> /etc/apt/sources.list.d/llvm.list \
- && apt-get update  -qq  \
- && apt-get install -qq -y \
-        pipenv libssl-dev cmake clang llvm
+RUN echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster-10 main" > /etc/apt/sources.list.d/llvm.list
+RUN apt-get update  -qq
+RUN apt-get install -qq -y pipenv libssl-dev cmake clang-10 llvm-10
 
 # Default C compiler
 # XXX: Somehow clang breaks.
