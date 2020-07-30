@@ -14,7 +14,7 @@ export LOGLEVEL=INFO
 
 rm $OUTFILE
 
-for dir in ../bin/X*; do
+for dir in ../bin/*; do
     pushd $dir;
     echo "PQTLS"
     killall pqtlsserver pqtlsclient
@@ -34,7 +34,6 @@ for dir in ../bin/X*; do
     echo "$dir PQTLS" >> $OUTFILE
     python count-hs-bytes.py pqtls $TMPDIR/pqtls-dump.json >> $OUTFILE
     ret=$?
-    ret=1
     if [ $ret != 0 ]; then
         echo "Error occurred when processing"
         mv $TMPDIR/pqtls-dump.json /tmp
