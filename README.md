@@ -37,12 +37,8 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
 
 ### Miscelaneous dependencies
 
-The following repositories were mostly necessary for compiling ``ring`` and ``rustls``.
-
-* ``sct.rs``: dependency of Rustls that would otherwise pull in non-modified ``ring``.
-* ``webpki-roots``: dependendcy of WebPKI that would otherwise pull in non-modified ``ring``.
 * ``tls-hacking``: Contains a generator for the ``src/msgs/enums.rs`` file in ``rustls``.
-    This file is needed to add cryptographic primitives.
+    Updating `enums.rs` is needed to add cryptographic primitives. The generator helps keeping enums in sync.
 
 ## Working with this repository
 
