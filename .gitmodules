@@ -1,9 +1,11 @@
 [submodule "webpki"]
 	path = webpki
 	url = https://github.com/thomwiggers/webpki.git
-[submodule "webpki-roots"]
-	path = webpki-roots
-	url = https://github.com/thomwiggers/webpki-roots.git
+	branch = pq-take2
 [submodule "mk-cert"]
 	path = mk-cert
 	url = https://github.com/thomwiggers/mk-cert
+[submodule "rustls"]
+	path = rustls
+	url = https://github.com/thomwiggers/rustls.git
+	branch = pqtls-take2
