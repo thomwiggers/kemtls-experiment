@@ -6,9 +6,9 @@ ROOT=$(dirname $0)/../../
 cd $ROOT
 
 export KEX_ALG="${1:-kyber512}"
-export LEAF_SIGALG="${2:-Falcon512}"
-export INT_SIGALG="${3:-Falcon512}"
-export ROOT_SIGALG="${4:-RainbowIaCyclic}"
+export LEAF_SIGALG="${2:-dilithium2}"
+export INT_SIGALG="${3:-dilithium2}"
+export ROOT_SIGALG="${4:-dilithium2}"
 
 
 docker build \
@@ -28,8 +28,8 @@ docker run --rm \
     --volume $volumename:/output \
     --workdir /output   \
     pqtls-builder:$KEX_ALG \
-    bash -c "cp /usr/local/bin/*tlsserver . &&
-             cp /usr/local/bin/*tlsclient . &&
+    bash -c "cp /usr/local/bin/tlsserver . &&
+             cp /usr/local/bin/tlsclient . &&
              cp /certs/* ."
 
 if ! [ "$KEX_ALG" = "X25519" ]; then

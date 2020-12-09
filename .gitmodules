@@ -9,3 +9,6 @@
 	path = rustls
 	url = https://github.com/thomwiggers/rustls.git
 	branch = pqtls-take2
+[submodule "ring"]
+	path = ring
+	url = https://github.com/thomwiggers/ring.git
