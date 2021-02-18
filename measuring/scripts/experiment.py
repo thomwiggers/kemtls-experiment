@@ -18,28 +18,37 @@ hostname = "servername"
 ALGORITHMS = (
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
-    ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
+    ("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
-    #('sign', "sikep434compressed", "falcon512", "xmss", "gemss128"),
-    #('sign', "sikep434compressed", "falcon512", "gemss128", "gemss128"),
-    ('sign', "sikep434compressed", "falcon512", "xmss", "rainbowicyclic"),
-    ('sign', "sikep434compressed", "falcon512", "rainbowicyclic", "rainbowicyclic"),
-    ('sign', "kyber512", "dilithium2", "dilithium2", "dilithium2"),
-    ('sign', "ntruhps2048509", "falcon512", "falcon512", "falcon512"),
+    # ('sign', "sikep434compressed", "falcon512", "xmss", "gemss128"),
+    # ('sign', "sikep434compressed", "falcon512", "gemss128", "gemss128"),
+    ("sign", "sikep434compressed", "falcon512", "xmss", "rainbowicyclic"),
+    ("sign", "sikep434compressed", "falcon512", "rainbowicyclic", "rainbowicyclic"),
+    ("sign", "kyber512", "dilithium2", "dilithium2", "dilithium2"),
+    ("sign", "ntruhps2048509", "falcon512", "falcon512", "falcon512"),
     #  KEMTLS
-    #('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "gemss128"),
-    #('kemtls', "sikep434compressed", "sikep434compressed", "gemss128", "gemss128"),
-    ('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "rainbowicyclic"),
-    ('kemtls', "sikep434compressed", "sikep434compressed", "rainbowicyclic", "rainbowicyclic"),
-    ('kemtls', "kyber512", "kyber512", "dilithium2", "dilithium2"),
-    ('kemtls', "ntruhps2048509", "ntruhps2048509", "falcon512", "falcon512"),
+    # ('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "gemss128"),
+    # ('kemtls', "sikep434compressed", "sikep434compressed", "gemss128", "gemss128"),
+    ("kemtls", "sikep434compressed", "sikep434compressed", "xmss", "rainbowicyclic"),
+    (
+        "kemtls",
+        "sikep434compressed",
+        "sikep434compressed",
+        "rainbowicyclic",
+        "rainbowicyclic",
+    ),
+    ("kemtls", "kyber512", "kyber512", "dilithium2", "dilithium2"),
+    ("kemtls", "ntruhps2048509", "ntruhps2048509", "falcon512", "falcon512"),
 )
 
 # Original set of latencies
 # LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
-LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
-LOSS_RATES = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+LATENCIES = [
+    "15.458ms",
+    "97.73ms",
+]  # ['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
+LOSS_RATES = [0]  # [ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
 NUM_PINGS = 50  # for measuring the practical latency
 SPEEDS = [1000, 10]
 
@@ -49,7 +58,7 @@ SPEEDS = [1000, 10]
 ITERATIONS = 2
 POOL_SIZE = 20
 START_PORT = 10000
-SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
+SERVER_PORTS = [str(port) for port in range(10000, 10000 + POOL_SIZE)]
 MEASUREMENTS_PER_PROCESS = 50
 MEASUREMENTS_PER_CLIENT = 50
 
@@ -72,15 +81,45 @@ def run_subprocess(command, working_dir=".", expected_returncode=0):
 def change_qdisc(ns, dev, pkt_loss, delay, rate=1000):
     if pkt_loss == 0:
         command = [
-            "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
-            "root", "netem", "limit", "1000", "delay", delay,
-            "rate", f"{rate}mbit",
+            "ip",
+            "netns",
+            "exec",
+            ns,
+            "tc",
+            "qdisc",
+            "change",
+            "dev",
+            dev,
+            "root",
+            "netem",
+            "limit",
+            "1000",
+            "delay",
+            delay,
+            "rate",
+            f"{rate}mbit",
         ]
     else:
         command = [
-            "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
-            "root", "netem", "limit", "1000", "loss", "{0}%".format(pkt_loss),
-            "delay", delay, "rate", f"{rate}mbit",
+            "ip",
+            "netns",
+            "exec",
+            ns,
+            "tc",
+            "qdisc",
+            "change",
+            "dev",
+            dev,
+            "root",
+            "netem",
+            "limit",
+            "1000",
+            "loss",
+            "{0}%".format(pkt_loss),
+            "delay",
+            delay,
+            "rate",
+            f"{rate}mbit",
         ]
 
     logging.debug(" > " + " ".join(command))
@@ -106,11 +145,17 @@ class ServerProcess(multiprocessing.Process):
     def run(self):
         self.server_process = subprocess.Popen(
             [
-                "ip", "netns", "exec", "srv_ns",
+                "ip",
+                "netns",
+                "exec",
+                "srv_ns",
                 f"./{self.servername}",
-                "--certs", self.certname,
-                "--key", self.keyname,
-                "--port", self.port,
+                "--certs",
+                self.certname,
+                "--key",
+                self.keyname,
+                "--port",
+                self.port,
                 "http",
             ],
             cwd=self.path,
@@ -145,7 +190,9 @@ class ServerProcess(multiprocessing.Process):
         try:
             self.server_process.wait(5)
         except subprocess.TimeoutExpired:
-            logging.exception("Timeout expired while waiting for server on {port} to terminate")
+            logging.exception(
+                "Timeout expired while waiting for server on {port} to terminate"
+            )
             self.server_process.kill()
 
 
@@ -166,18 +213,31 @@ def run_measurement(output_queue, path, port, type, cached_int):
     client_measurements = []
     restarts = 0
     allowed_restarts = 2 * MEASUREMENTS_PER_PROCESS / MEASUREMENTS_PER_CLIENT
-    while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive() and restarts < allowed_restarts:
+    while (
+        len(client_measurements) < MEASUREMENTS_PER_PROCESS
+        and server.is_alive()
+        and restarts < allowed_restarts
+    ):
         logging.debug(f"Starting measurements on port {port}")
         try:
             proc_result = subprocess.run(
                 [
-                    "ip", "netns", "exec", "cli_ns",
+                    "ip",
+                    "netns",
+                    "exec",
+                    "cli_ns",
                     f"./{clientname}",
-                    "--cafile", caname,
+                    "--cafile",
+                    caname,
                     "--loops",
-                    str(min(MEASUREMENTS_PER_PROCESS - len(client_measurements),
-                            MEASUREMENTS_PER_CLIENT)),
-                    "--port", port,
+                    str(
+                        min(
+                            MEASUREMENTS_PER_PROCESS - len(client_measurements),
+                            MEASUREMENTS_PER_CLIENT,
+                        )
+                    ),
+                    "--port",
+                    port,
                     "--no-tickets",
                     "--http",
                     hostname,
@@ -202,7 +262,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
         logging.debug(f"Completed measurements on port {port}")
         measurement = {}
         for line in proc_result.stdout.split("\n"):
-            assert 'WebPKIError' not in line
+            assert "WebPKIError" not in line
             result = TIMER_REGEX.match(line)
             if result:
                 label = result.group("label")
@@ -286,7 +346,9 @@ def reverse_resolve_hostname():
     return socket.gethostbyaddr("10.99.0.1")[0]
 
 
-def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate) -> str:
+def get_filename(
+    kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate
+) -> str:
     fileprefix = f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
     if not cached_int:
         fileprefix += f"_{root}"
@@ -298,7 +360,9 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
 
 def setup_experiments():
     # get unique combinations
-    combinations = set((kex_alg, leaf, inter, root) for (kex_alg, leaf, inter, root) in ALGORITHMS)
+    combinations = set(
+        (kex_alg, leaf, inter, root) for (kex_alg, leaf, inter, root) in ALGORITHMS
+    )
 
     for (kex, leaf, inter, root) in combinations:
         expath = get_experiment_path(kex, leaf, inter, root)
@@ -330,7 +394,12 @@ def main():
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for ((type, kex_alg, leaf, intermediate, root), cached_int, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
+        for (
+            (type, kex_alg, leaf, intermediate, root),
+            cached_int,
+            pkt_loss,
+            rate,
+        ) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
             logging.info(
                 f"Experiment for {type} {kex_alg} {leaf} {intermediate} "
                 f"{root} for {rtt_ms}ms latency with "
@@ -343,7 +412,15 @@ def main():
             change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)
             result = []
             filename = get_filename(
-                kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate
+                kex_alg,
+                leaf,
+                intermediate,
+                root,
+                type,
+                cached_int,
+                rtt_ms,
+                pkt_loss,
+                rate,
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
@@ -357,6 +434,10 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO)
+    logging.basicConfig(
+        format="%(asctime)s - %(message)s",
+        datefmt="%Y/%m/%d %H:%M:%S",
+        level=logging.INFO,
+    )
     hostname = reverse_resolve_hostname()
     main()
