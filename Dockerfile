@@ -29,11 +29,13 @@ COPY mk-cert /usr/src/pqtls/mk-cert
 # populate cargo build caches
 WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN echo "pub use oqs::sig::Algorithm::Dilithium2 as alg;" > src/lib.rs
+RUN cargo update
 RUN cargo build --release --examples
 
 WORKDIR /usr/src/pqtls/mk-cert/kemutil
-RUN echo "pub use pqcrypto::kem::kyber512::*;" > src/kem.rs
-RUN cargo build --release --features pqclean
+RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
+RUN cargo update
+RUN cargo build --release
 
 WORKDIR /usr/src/pqtls/mk-cert/xmss-rs
 RUN cargo build --release
@@ -58,7 +60,7 @@ ARG KEX_ALG="kyber512"
 ENV KEX_ALG     $KEX_ALG
 
 # Update the KEX alg
-RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^^}'@' /usr/src/pqtls/rustls/src/client/default_group.rs
+RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^}'@' /usr/src/pqtls/rustls/rustls/src/client/default_group.rs
 
 # Compile tlsserver and tlsclient examples
 WORKDIR /usr/src/pqtls/rustls/rustls-mio/
@@ -77,7 +79,7 @@ ENV LEAF_SIGALG $LEAF_SIGALG
 # actually generate the certificates
 # FIXME support X25519/RSA
 WORKDIR  /usr/src/pqtls/mk-cert
-RUN pipenv run python encoder.py
+RUN      pipenv run python encoder.py
 
 # Set up clean environment
 FROM debian:buster
@@ -87,8 +89,8 @@ RUN apt-get update -qq \
  && apt-get install -qq -y libssl1.1 \
  && rm -rf /var/cache/apt
 
-COPY --from=builder /usr/src/pqtls/rustls/rustls-mio/target/release/examples/tlsserver /usr/local/bin/tlsserver
-COPY --from=builder /usr/src/pqtls/rustls/rustls-mio/target/release/examples/tlsclient /usr/local/bin/tlsclient
+COPY --from=builder /usr/src/pqtls/rustls/target/release/examples/tlsserver /usr/local/bin/tlsserver
+COPY --from=builder /usr/src/pqtls/rustls/target/release/examples/tlsclient /usr/local/bin/tlsclient
 COPY --from=builder /usr/src/pqtls/mk-cert/*.crt /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.key /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.pub /certs/
