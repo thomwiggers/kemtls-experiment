@@ -11,7 +11,7 @@ import re
 import socket
 import logging
 import datetime
-
+from pathlib import Path
 
 hostname = "servername"
 
@@ -19,21 +19,21 @@ ALGORITHMS = (
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
     ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    #('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    #('sign', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
-    ('sign', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
-    ('sign', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
-    ('sign', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
-    #('sign', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
-    ('kem', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    #('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'RainbowIaCyclic'),
-    ('kem', 'sikep434compressed', 'Falcon512', 'XMSS', 'Gemss128'),
-    #('kem', 'sikep434compressed', 'Falcon512', 'RainbowIaCyclic', 'RainbowIaCyclic'),
-    ('kem', 'sikep434compressed', 'Falcon512', 'Gemss128', 'Gemss128'),
-    ('kem', 'kyber512', 'Dilithium2', 'Dilithium2', 'Dilithium2',),
-    ('kem', 'ntruhps2048509', 'Falcon512', 'Falcon512', 'Falcon512'),
-    #('kem', 'kyber512', 'Dilithium2', 'XMSS', 'XMSS'),
+    # KEMTLS paper
+    #  PQ Signed KEX
+    #('sign', "sikep434compressed", "falcon512", "xmss", "gemss128"),
+    #('sign', "sikep434compressed", "falcon512", "gemss128", "gemss128"),
+    ('sign', "sikep434compressed", "falcon512", "xmss", "rainbowicyclic"),
+    ('sign', "sikep434compressed", "falcon512", "rainbowicyclic", "rainbowicyclic"),
+    ('sign', "kyber512", "dilithium2", "dilithium2", "dilithium2"),
+    ('sign', "ntruhps2048509", "falcon512", "falcon512", "falcon512"),
+    #  KEMTLS
+    #('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "gemss128"),
+    #('kemtls', "sikep434compressed", "sikep434compressed", "gemss128", "gemss128"),
+    ('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "rainbowicyclic"),
+    ('kemtls', "sikep434compressed", "sikep434compressed", "rainbowicyclic", "rainbowicyclic"),
+    ('kemtls', "kyber512", "kyber512", "dilithium2", "dilithium2"),
+    ('kemtls', "ntruhps2048509", "ntruhps2048509", "falcon512", "falcon512"),
 )
 
 # Original set of latencies
@@ -50,7 +50,7 @@ ITERATIONS = 2
 POOL_SIZE = 20
 START_PORT = 10000
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 500
+MEASUREMENTS_PER_PROCESS = 50
 MEASUREMENTS_PER_CLIENT = 50
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
@@ -94,12 +94,12 @@ class ServerProcess(multiprocessing.Process):
         self.port = port
         self.pipe = pipe
         self.last_msg = "HANDSHAKE COMPLETED"
+        self.servername = "tlsserver"
+        self.type = type
         if type == "sign":
-            self.servername = "pqtlsserver"
             self.certname = "signing" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "signing.key"
-        else:
-            self.servername = "kemtlsserver"
+        elif type == "kemtls":
             self.certname = "kem" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "kem.key"
 
@@ -188,7 +188,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
                 check=False,
                 cwd=path,
             )
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             logging.exception("Sever has hung itself, restarting measurements")
             client_measurements.clear()
             server.terminate()
@@ -235,7 +235,7 @@ def experiment_run_timers(path, type, cached_int):
         process.start()
 
     # Consume output
-    for _i in range(len(processes)):
+    for _ in range(len(processes)):
         results.extend(output_queue.get())
 
     logging.debug(f"Joining processes on {path} for {type}")
@@ -283,11 +283,10 @@ def write_result(outfile, results):
 
 
 def reverse_resolve_hostname():
-
     return socket.gethostbyaddr("10.99.0.1")[0]
 
 
-def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate):
+def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate) -> str:
     fileprefix = f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
     if not cached_int:
         fileprefix += f"_{root}"
@@ -297,7 +296,27 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
     return filename
 
 
+def setup_experiments():
+    # get unique combinations
+    combinations = set((kex_alg, leaf, inter, root) for (kex_alg, leaf, inter, root) in ALGORITHMS)
+
+    for (kex, leaf, inter, root) in combinations:
+        expath = get_experiment_path(kex, leaf, inter, root)
+        if expath.exists():
+            logging.info("Not regenerating '%s'", expath)
+            continue
+        run_subprocess(
+            ["./scripts", "create-experimental-setup.sh", kex, leaf, inter, root],
+        )
+
+
+def get_experiment_path(kex_alg: str, leaf: str, intermediate: str, root: str) -> Path:
+    root = Path("bin")
+    return root.join(f"{kex_alg}-{leaf}-{intermediate}-{root}")
+
+
 def main():
+    setup_experiments()
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=1001, gid=1001)
     for (type, caching) in itertools.product(["kem", "sign"], ["int-chain", "cached"]):
@@ -318,9 +337,7 @@ def main():
                 f"{'cached intermediate' if cached_int else 'full cert chain'} "
                 f"and {pkt_loss}% loss on {rate}mbit"
             )
-            experiment_path = os.path.join(
-                "bin", f"{kex_alg}-{leaf}-{intermediate}-{root}"
-            )
+            experiment_path = get_experiment_path(kex_alg, leaf, intermediate, root)
 
             change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
             change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)

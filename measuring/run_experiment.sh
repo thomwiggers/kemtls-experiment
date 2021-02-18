@@ -15,9 +15,7 @@ then
 fi
 
 rm -rf data
-if ! [ -d bin ]; then
-    sudo ./scripts/create-binaries-and-certs.sh
-else
+if [ -d bin ]; then
     echo "Delete bin folder to recreate stuff"
 fi
 
