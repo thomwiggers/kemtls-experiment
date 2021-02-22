@@ -55,12 +55,12 @@ RUN pipenv install
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from pqclean / oqs)
-ARG KEX_ALG="kyber512"
+ARG KEX_ALG="Kyber512"
 # re-export build args as env vars
 ENV KEX_ALG     $KEX_ALG
 
 # Update the KEX alg
-RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG^}'@' /usr/src/pqtls/rustls/rustls/src/client/default_group.rs
+RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG}'@' /usr/src/pqtls/rustls/rustls/src/client/default_group.rs
 
 # Compile tlsserver and tlsclient examples
 WORKDIR /usr/src/pqtls/rustls/rustls-mio/
@@ -69,9 +69,9 @@ RUN cargo build --release --example tlsserver && \
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from pqclean / oqs)
-ARG ROOT_SIGALG="dilithium2"
-ARG INT_SIGALG="dilithium2"
-ARG LEAF_SIGALG="dilithium2"
+ARG ROOT_SIGALG="Dilithium2"
+ARG INT_SIGALG="Dilithium2"
+ARG LEAF_SIGALG="Dilithium2"
 ENV ROOT_SIGALG $ROOT_SIGALG
 ENV INT_SIGALG  $INT_SIGALG
 ENV LEAF_SIGALG $LEAF_SIGALG

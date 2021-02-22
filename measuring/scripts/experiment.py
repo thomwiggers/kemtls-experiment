@@ -21,19 +21,19 @@ ALGORITHMS = (
     ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
     # KEMTLS paper
     #  PQ Signed KEX
-    #('sign', "sikep434compressed", "falcon512", "xmss", "gemss128"),
-    #('sign', "sikep434compressed", "falcon512", "gemss128", "gemss128"),
-    ('sign', "sikep434compressed", "falcon512", "xmss", "rainbowicyclic"),
-    ('sign', "sikep434compressed", "falcon512", "rainbowicyclic", "rainbowicyclic"),
-    ('sign', "kyber512", "dilithium2", "dilithium2", "dilithium2"),
-    ('sign', "ntruhps2048509", "falcon512", "falcon512", "falcon512"),
+    #('sign', "SikeP434Compressed", "Falcon512", "XMSS", "gemss128"),
+    #('sign', "SikeP434Compressed", "Falcon512", "gemss128", "gemss128"),
+    ('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
+    ('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    ('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+    ('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
-    #('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "gemss128"),
-    #('kemtls', "sikep434compressed", "sikep434compressed", "gemss128", "gemss128"),
-    ('kemtls', "sikep434compressed", "sikep434compressed", "xmss", "rainbowicyclic"),
-    ('kemtls', "sikep434compressed", "sikep434compressed", "rainbowicyclic", "rainbowicyclic"),
-    ('kemtls', "kyber512", "kyber512", "dilithium2", "dilithium2"),
-    ('kemtls', "ntruhps2048509", "ntruhps2048509", "falcon512", "falcon512"),
+    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "gemss128"),
+    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "gemss128", "gemss128"),
+    ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
+    ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    ('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
+    ('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
 )
 
 # Original set of latencies
@@ -155,12 +155,11 @@ def run_measurement(output_queue, path, port, type, cached_int):
     server.start()
     time.sleep(1)
 
+    clientname = "tlsclient"
     LAST_MSG = "RECEIVED SERVER REPLY"
     if type == "sign":
-        clientname = "pqtlsclient"
         caname = "signing" + ("-int" if cached_int else "-ca") + ".crt"
     else:
-        clientname = "kemtlsclient"
         caname = "kem" + ("-int" if cached_int else "-ca") + ".crt"
 
     client_measurements = []
@@ -298,21 +297,25 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
 
 def setup_experiments():
     # get unique combinations
-    combinations = set((kex_alg, leaf, inter, root) for (kex_alg, leaf, inter, root) in ALGORITHMS)
+    combinations = set(
+        (kex_alg, leaf, inter, root) 
+        for (_, kex_alg, leaf, inter, root) in ALGORITHMS
+    )
 
     for (kex, leaf, inter, root) in combinations:
         expath = get_experiment_path(kex, leaf, inter, root)
         if expath.exists():
-            logging.info("Not regenerating '%s'", expath)
+            logging.warning("Not regenerating '%s'", expath)
             continue
-        run_subprocess(
-            ["./scripts", "create-experimental-setup.sh", kex, leaf, inter, root],
+        subprocess.run(
+            ["./scripts/create-experimental-setup.sh", kex, leaf, inter, root],
+            check=True,
+            capture_output=False,
         )
 
 
 def get_experiment_path(kex_alg: str, leaf: str, intermediate: str, root: str) -> Path:
-    root = Path("bin")
-    return root.join(f"{kex_alg}-{leaf}-{intermediate}-{root}")
+    return Path("bin") / f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
 
 
 def main():
