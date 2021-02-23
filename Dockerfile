@@ -52,6 +52,10 @@ RUN cargo build --release --examples
 # Set up certificates (will be parameterised by the env vars)
 WORKDIR  /usr/src/pqtls/mk-cert
 RUN pipenv install
+WORKDIR /usr/src/pqtls/mk-cert/kemutil
+RUN cargo build --release
+WORKDIR /usr/src/pqtls/mk-cert/signutil
+RUN cargo build --release --examples
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from pqclean / oqs)
@@ -71,13 +75,12 @@ RUN cargo build --release --example tlsserver && \
 # (and those follow from pqclean / oqs)
 ARG ROOT_SIGALG="Dilithium2"
 ARG INT_SIGALG="Dilithium2"
-ARG LEAF_SIGALG="Dilithium2"
+ARG LEAF_ALG="Dilithium2"
 ENV ROOT_SIGALG $ROOT_SIGALG
 ENV INT_SIGALG  $INT_SIGALG
-ENV LEAF_SIGALG $LEAF_SIGALG
+ENV LEAF_ALG    $LEAF_ALG
 
 # actually generate the certificates
-# FIXME support X25519/RSA
 WORKDIR  /usr/src/pqtls/mk-cert
 RUN      pipenv run python encoder.py
 

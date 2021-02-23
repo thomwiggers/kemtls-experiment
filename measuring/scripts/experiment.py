@@ -12,6 +12,7 @@ import socket
 import logging
 import datetime
 from pathlib import Path
+from typing import Tuple
 
 hostname = "servername"
 
@@ -34,6 +35,8 @@ ALGORITHMS = (
     ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
     ('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
     ('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
+    # KEMTLS PDK
+    ("pdk", "Kyber512", "Kyber512", None, None),
 )
 
 # Original set of latencies
@@ -96,10 +99,10 @@ class ServerProcess(multiprocessing.Process):
         self.last_msg = "HANDSHAKE COMPLETED"
         self.servername = "tlsserver"
         self.type = type
-        if type == "sign":
+        if type == "sign" or type == "signcached":
             self.certname = "signing" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "signing.key"
-        elif type == "kemtls":
+        elif type == "kemtls" or type == "pdk":
             self.certname = "kem" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "kem.key"
 
@@ -156,15 +159,23 @@ def run_measurement(output_queue, path, port, type, cached_int):
     time.sleep(1)
 
     clientname = "tlsclient"
-    LAST_MSG = "RECEIVED SERVER REPLY"
+    LAST_MSG = "HANDSHAKE COMPLETED"
     if type == "sign":
         caname = "signing" + ("-int" if cached_int else "-ca") + ".crt"
-    else:
+    elif type == "kemtls" or type == "pdk":
         caname = "kem" + ("-int" if cached_int else "-ca") + ".crt"
 
     client_measurements = []
     restarts = 0
     allowed_restarts = 2 * MEASUREMENTS_PER_PROCESS / MEASUREMENTS_PER_CLIENT
+    cache_args = []
+    if type == "pdk":
+        cache_args = ["--cached-certs", "kem.crt"]
+    elif type == "signcached":
+        if not cached_int:
+            cache_args = ["--cached-certs", "signing.all.crt"]
+        else:
+            cache_args = ["--cached-certs", "signing.chain.crt"]
     while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive() and restarts < allowed_restarts:
         logging.debug(f"Starting measurements on port {port}")
         try:
@@ -179,11 +190,12 @@ def run_measurement(output_queue, path, port, type, cached_int):
                     "--port", port,
                     "--no-tickets",
                     "--http",
+                    *cache_args,
                     hostname,
                 ],
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=50 * MEASUREMENTS_PER_CLIENT,
+                timeout=10 * MEASUREMENTS_PER_CLIENT,
                 check=False,
                 cwd=path,
             )
@@ -286,11 +298,11 @@ def reverse_resolve_hostname():
 
 
 def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate) -> str:
-    fileprefix = f"{kex_alg}_{kex_alg if type == 'kem' else leaf}_{intermediate}"
+    fileprefix = f"{kex_alg}_{leaf}_{intermediate}"
     if not cached_int:
         fileprefix += f"_{root}"
     fileprefix += f"_{rtt_ms}ms"
-    caching_type = "int-chain" if not cached_int else "cached"
+    caching_type = "int-chain" if not cached_int else "int-only"
     filename = f"data/{type}-{caching_type}/{fileprefix}_{pkt_loss}_{rate}mbit.csv"
     return filename
 
@@ -298,7 +310,7 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
 def setup_experiments():
     # get unique combinations
     combinations = set(
-        (kex_alg, leaf, inter, root) 
+        get_experiment_instantiation(kex_alg, leaf, inter, root) 
         for (_, kex_alg, leaf, inter, root) in ALGORITHMS
     )
 
@@ -314,15 +326,33 @@ def setup_experiments():
         )
 
 
+def get_experiment_instantiation(kex_alg: str, leaf: str, intermediate: str, root: str) -> Tuple[str, str, str, str]:
+        # intermediate and root might be None, which means we'll need to match
+    for (_, kex_, leaf_, intermediate_, root_) in ALGORITHMS:
+        if kex_alg != kex_ or leaf != leaf_:
+            continue
+        if intermediate is None and intermediate_ is not None and root is not None and root == root_:
+            intermediate = intermediate_
+            break
+        elif intermediate is None and root is None:
+            if intermediate_ is not None and root_ is not None:
+                intermediate = intermediate_
+                root = root_
+                break
+    intermediate = intermediate or "Dilithium2"
+    root = root or "Dilithium2"
+
+    return (kex_alg, leaf, intermediate, root)
+
+
 def get_experiment_path(kex_alg: str, leaf: str, intermediate: str, root: str) -> Path:
     return Path("bin") / f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
 
 
 def main():
-    setup_experiments()
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=1001, gid=1001)
-    for (type, caching) in itertools.product(["kem", "sign"], ["int-chain", "cached"]):
+    for (type, caching) in itertools.product(["kemtls", "sign", "sign-cached", "pdk"], ["int-chain", "int-only"]):
         dirname = os.path.join("data", f"{type}-{caching}")
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)
@@ -334,12 +364,14 @@ def main():
         rtt_ms = get_rtt_ms()
 
         for ((type, kex_alg, leaf, intermediate, root), cached_int, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
+            (kex_alg, leaf, intermediate, root) = get_experiment_instantiation(kex_alg, leaf, intermediate, root)
             logging.info(
                 f"Experiment for {type} {kex_alg} {leaf} {intermediate} "
                 f"{root} for {rtt_ms}ms latency with "
                 f"{'cached intermediate' if cached_int else 'full cert chain'} "
                 f"and {pkt_loss}% loss on {rate}mbit"
             )
+
             experiment_path = get_experiment_path(kex_alg, leaf, intermediate, root)
 
             change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
@@ -361,5 +393,6 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO)
+    setup_experiments()
     hostname = reverse_resolve_hostname()
     main()
