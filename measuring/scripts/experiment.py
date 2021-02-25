@@ -13,6 +13,13 @@ import logging
 import datetime
 from pathlib import Path
 from typing import Tuple
+import sys
+
+SCRIPTDIR = Path(sys.path[0]).resolve()
+sys.path.append(str(SCRIPTDIR.parent.parent / "mk-cert"))
+
+
+import algorithms
 
 hostname = "servername"
 
@@ -22,22 +29,78 @@ ALGORITHMS = (
     ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
     # KEMTLS paper
     #  PQ Signed KEX
-    #('sign', "SikeP434Compressed", "Falcon512", "XMSS", "gemss128"),
-    #('sign', "SikeP434Compressed", "Falcon512", "gemss128", "gemss128"),
+    ('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+    #('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
+    #('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
     ('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
     ('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    ('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
     ('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
-    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "gemss128"),
-    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "gemss128", "gemss128"),
+    ('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
+    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
+    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
     ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
     ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    ('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
     ('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
-    # KEMTLS PDK
-    ("pdk", "Kyber512", "Kyber512", None, None),
+    # KEMTLS PDK experiments
+    #  TLS with cached certs
+    *(
+        ("sign-cached", kex, sig, None, None)
+        for kex, sig in [
+            ("X25519", "RSA2048"),
+            ("Kyber512", "Dilithium2"),
+            ("Lightsaber", "Dilithium2"),
+            ("NtruHps2048509", "Falcon512"),
+            ("Kyber512", "RainbowIClassic"),
+        ]
+    ),
+    #  PDK
+    #   Level 1
+    *(
+        ("pdk", kex, kex, None, None)
+        for kex in [
+            "Kyber512",
+            "Lightsaber",
+            "NtruHps2048509",
+            "ClassicMcEliece348864",
+            "Hqc128",
+            "NtruPrimeNtrulpr653",
+            "NtruPrimeSntrup653",
+            "BikeL1Fo",
+            "FrodoKem640Shake",
+            "SikeP434",
+            "SikeP434Compressed",
+        ]
+    ),
+    #   Special combos with McEliece
+    *(
+        ("pdk", "ClassicMcEliece348864", kex, None, None)
+        for kex in [
+            "Kyber512",
+            "Lightsaber",
+            "NtruHps2048509",
+            "SikeP434",
+            "SikeP434Compressed",
+        ]
+    ),
 )
+
+# Validate choices
+def __validate_experiments() -> None:
+    known_kems = [kem[1] for kem in algorithms.kems] + ["X25519"]
+    known_sigs = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
+    for (_, kex, leaf, int, root) in ALGORITHMS:
+        assert kex in known_kems, f"{kex} is not a known KEM"
+        assert leaf in known_kems or leaf in known_sigs, f"{leaf} is not a known algorithm"
+        assert int is None or int in known_sigs, f"{int} is not a known signature algorithm"
+        assert root is None or root in known_sigs, f"{root} is not a known signature algorithm"
+__validate_experiments()
+
+def only_unique_experiments() -> None:
+    """get unique experiments"""
+    global ALGORITHMS
+    seen = set()
+    ALGORITHMS = [seen.add(combo[0]) or combo for combo in ALGORITHMS if combo[0] not in seen]
 
 # Original set of latencies
 # LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
@@ -59,7 +122,7 @@ MEASUREMENTS_PER_CLIENT = 50
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
 
-def run_subprocess(command, working_dir=".", expected_returncode=0):
+def run_subprocess(command, working_dir=".", expected_returncode=0) -> str:
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,
@@ -68,11 +131,11 @@ def run_subprocess(command, working_dir=".", expected_returncode=0):
         text=True,
         check=False,
     )
-    assert result.returncode == expected_returncode, f"Failed to run '{command}'"
+    assert result.returncode == expected_returncode, f"Failed to run '{command}':\n{result.stdout}"
     return result.stdout
 
 
-def change_qdisc(ns, dev, pkt_loss, delay, rate=1000):
+def change_qdisc(ns, dev, pkt_loss, delay, rate=1000) -> None:
     if pkt_loss == 0:
         command = [
             "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
@@ -99,7 +162,7 @@ class ServerProcess(multiprocessing.Process):
         self.last_msg = "HANDSHAKE COMPLETED"
         self.servername = "tlsserver"
         self.type = type
-        if type == "sign" or type == "signcached":
+        if type == "sign" or type == "sign-cached":
             self.certname = "signing" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "signing.key"
         elif type == "kemtls" or type == "pdk":
@@ -171,7 +234,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
     cache_args = []
     if type == "pdk":
         cache_args = ["--cached-certs", "kem.crt"]
-    elif type == "signcached":
+    elif type == "sign-cached":
         if not cached_int:
             cache_args = ["--cached-certs", "signing.all.crt"]
         else:
@@ -293,7 +356,7 @@ def write_result(outfile, results):
         writer.writerow(row)
 
 
-def reverse_resolve_hostname():
+def reverse_resolve_hostname() -> str:
     return socket.gethostbyaddr("10.99.0.1")[0]
 
 
@@ -303,11 +366,11 @@ def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pk
         fileprefix += f"_{root}"
     fileprefix += f"_{rtt_ms}ms"
     caching_type = "int-chain" if not cached_int else "int-only"
-    filename = f"data/{type}-{caching_type}/{fileprefix}_{pkt_loss}_{rate}mbit.csv"
+    filename = SCRIPTDIR.parent / "data" / f"{type}-{caching_type}/{fileprefix}_{pkt_loss}_{rate}mbit.csv"
     return filename
 
 
-def setup_experiments():
+def setup_experiments() -> None:
     # get unique combinations
     combinations = set(
         get_experiment_instantiation(kex_alg, leaf, inter, root) 
@@ -320,7 +383,7 @@ def setup_experiments():
             logging.warning("Not regenerating '%s'", expath)
             continue
         subprocess.run(
-            ["./scripts/create-experimental-setup.sh", kex, leaf, inter, root],
+            [SCRIPTDIR / "create-experimental-setup.sh", kex, leaf, inter, root],
             check=True,
             capture_output=False,
         )
@@ -346,14 +409,14 @@ def get_experiment_instantiation(kex_alg: str, leaf: str, intermediate: str, roo
 
 
 def get_experiment_path(kex_alg: str, leaf: str, intermediate: str, root: str) -> Path:
-    return Path("bin") / f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
+    return SCRIPTDIR.parent / Path("bin") / f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
 
 
 def main():
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=1001, gid=1001)
     for (type, caching) in itertools.product(["kemtls", "sign", "sign-cached", "pdk"], ["int-chain", "int-only"]):
-        dirname = os.path.join("data", f"{type}-{caching}")
+        dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}"
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)
 
@@ -393,6 +456,13 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO)
+    logging.info("Sign experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign")))
+    logging.info("KEMTLS experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "kemtls")))
+    logging.info("PDK experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "pdk")))
+    logging.info("Sign-cached experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign-cached")))
+
+    only_unique_experiments()
+    
     setup_experiments()
     hostname = reverse_resolve_hostname()
     main()
