@@ -22,7 +22,6 @@ pushd rustls
 python generate_schemes.py
 git add rustls/src/generated
 cargo update
-cargo check
 popd
 
 pushd rustls/test-ca

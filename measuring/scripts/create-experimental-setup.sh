@@ -9,14 +9,24 @@ export KEX_ALG="${1:-Kyber512}"
 export LEAF_ALG="${2:-Dilithium2}"
 export INT_SIGALG="${3:-Dilithium2}"
 export ROOT_SIGALG="${4:-Dilithium2}"
+export CLIENT_AUTH="${5}"
+export CLIENT_CA_ALG="${6}"
+
 
 tag=${KEX_ALG,,}-${LEAF_ALG,,}-${INT_SIGALG,,}-${ROOT_SIGALG,,}
+
+extra_args=
+if [ "$CLIENT_AUTH" != "" ]; then
+    tag=${tag}-${CLIENT_AUTH,,}-${CLIENT_CA_ALG,,}
+    extra_args="--build-arg CLIENT_AUTH=$CLIENT_AUTH --build-arg CLIENT_CA_ALG=$CLIENT_CA_ALG"
+fi
 
 docker build \
     --build-arg ROOT_SIGALG=$ROOT_SIGALG \
     --build-arg INT_SIGALG=$INT_SIGALG \
     --build-arg LEAF_ALG=$LEAF_ALG \
     --build-arg KEX_ALG=$KEX_ALG \
+    $extra_args \
     --tag pqtls-builder:$tag .
 
 volumename=$PWD/measuring/bin/$tag

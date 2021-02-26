@@ -12,7 +12,7 @@ import socket
 import logging
 import datetime
 from pathlib import Path
-from typing import Tuple
+from typing import NamedTuple, Optional, Tuple, Union, Literal
 import sys
 
 SCRIPTDIR = Path(sys.path[0]).resolve()
@@ -23,31 +23,43 @@ import algorithms
 
 hostname = "servername"
 
-ALGORITHMS = (
+
+class Experiment(NamedTuple):
+    type: Union[Literal["sign"], Literal["pdk"], Literal["kemtls"], Literal["sign-cached"]]
+    kex: str
+    leaf: str
+    intermediate: Optional[str] = None
+    root: Optional[str] = None
+    client_auth: Optional[str] = None
+    client_ca: Optional[str] = None
+
+
+ALGORITHMS = [
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT
-    ('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
+    Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
+    Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048', "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
-    ('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
-    #('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
-    #('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
-    ('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
-    ('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    ('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
+    Experiment('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+    #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
+    #Experiment('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
+    Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
+    Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
-    ('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
-    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
-    #('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
-    ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
-    ('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    ('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
+    Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
+    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
+    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    Experiment('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
     # KEMTLS PDK experiments
     #  TLS with cached certs
+    Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", "RSA2048"),
     *(
-        ("sign-cached", kex, sig, None, None)
+        Experiment("sign-cached", kex, sig)
         for kex, sig in [
-            ("X25519", "RSA2048"),
             ("Kyber512", "Dilithium2"),
             ("Lightsaber", "Dilithium2"),
             ("NtruHps2048509", "Falcon512"),
@@ -57,7 +69,7 @@ ALGORITHMS = (
     #  PDK
     #   Level 1
     *(
-        ("pdk", kex, kex, None, None)
+        Experiment("pdk", kex, kex)
         for kex in [
             "Kyber512",
             "Lightsaber",
@@ -74,7 +86,7 @@ ALGORITHMS = (
     ),
     #   Special combos with McEliece
     *(
-        ("pdk", "ClassicMcEliece348864", kex, None, None)
+        Experiment("pdk", "ClassicMcEliece348864", kex)
         for kex in [
             "Kyber512",
             "Lightsaber",
@@ -83,24 +95,30 @@ ALGORITHMS = (
             "SikeP434Compressed",
         ]
     ),
-)
+]
 
 # Validate choices
 def __validate_experiments() -> None:
     known_kems = [kem[1] for kem in algorithms.kems] + ["X25519"]
     known_sigs = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
-    for (_, kex, leaf, int, root) in ALGORITHMS:
+    for (_, kex, leaf, int, root, client_auth, client_ca) in ALGORITHMS:
         assert kex in known_kems, f"{kex} is not a known KEM"
         assert leaf in known_kems or leaf in known_sigs, f"{leaf} is not a known algorithm"
         assert int is None or int in known_sigs, f"{int} is not a known signature algorithm"
         assert root is None or root in known_sigs, f"{root} is not a known signature algorithm"
+        assert client_auth is None or client_auth in known_sigs or client_auth in known_kems, \
+            f"{client_auth} is not a known signature algorith or KEM"
+        assert client_ca is None or client_ca in known_sigs, f"{client_ca} is not a known sigalg"
 __validate_experiments()
 
 def only_unique_experiments() -> None:
     """get unique experiments"""
     global ALGORITHMS
     seen = set()
-    ALGORITHMS = [seen.add(combo[0]) or combo for combo in ALGORITHMS if combo[0] not in seen]
+    def update(exp: Experiment) -> Experiment:
+        seen.add(exp.type)
+        return exp
+    ALGORITHMS = [update(exp) for exp in ALGORITHMS if exp.type not in seen]
 
 # Original set of latencies
 # LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
@@ -154,20 +172,28 @@ def change_qdisc(ns, dev, pkt_loss, delay, rate=1000) -> None:
 
 
 class ServerProcess(multiprocessing.Process):
-    def __init__(self, path, port, type, pipe, cached_int=False):
+    def __init__(self, port, pipe, experiment: Experiment, cached_int=False):
         super().__init__(daemon=False)
-        self.path = path
+        self.experiment = experiment
+        self.path = get_experiment_path(experiment)
         self.port = port
         self.pipe = pipe
         self.last_msg = "HANDSHAKE COMPLETED"
         self.servername = "tlsserver"
-        self.type = type
+        self.type = experiment.type
+        self.clientauthopts = []
+        type = experiment.type
         if type == "sign" or type == "sign-cached":
             self.certname = "signing" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "signing.key"
         elif type == "kemtls" or type == "pdk":
             self.certname = "kem" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "kem.key"
+        else:
+            raise ValueError(f"Invalid Experiment type in {experiment}")
+
+        if experiment.client_auth is not None:
+            self.clientauthopts = ["--require-auth", "--auth", "client-ca.crt"]
 
     def run(self):
         self.server_process = subprocess.Popen(
@@ -177,6 +203,7 @@ class ServerProcess(multiprocessing.Process):
                 "--certs", self.certname,
                 "--key", self.keyname,
                 "--port", self.port,
+                *self.clientauthopts,
                 "http",
             ],
             cwd=self.path,
@@ -215,12 +242,13 @@ class ServerProcess(multiprocessing.Process):
             self.server_process.kill()
 
 
-def run_measurement(output_queue, path, port, type, cached_int):
+def run_measurement(output_queue, port, experiment, cached_int):
     (inpipe, outpipe) = multiprocessing.Pipe()
-    server = ServerProcess(path, port, type, inpipe, cached_int)
+    server = ServerProcess(port, inpipe, experiment, cached_int)
     server.start()
     time.sleep(1)
 
+    path = get_experiment_path(experiment)
     clientname = "tlsclient"
     LAST_MSG = "HANDSHAKE COMPLETED"
     if type == "sign":
@@ -239,6 +267,9 @@ def run_measurement(output_queue, path, port, type, cached_int):
             cache_args = ["--cached-certs", "signing.all.crt"]
         else:
             cache_args = ["--cached-certs", "signing.chain.crt"]
+    clientauthopts = []
+    if experiment.client_auth is not None:
+        clientauthopts = ["--auth-certs", "client.crt", "--auth-key", "client.key"]
     while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive() and restarts < allowed_restarts:
         logging.debug(f"Starting measurements on port {port}")
         try:
@@ -254,6 +285,7 @@ def run_measurement(output_queue, path, port, type, cached_int):
                     "--no-tickets",
                     "--http",
                     *cache_args,
+                    *clientauthopts,
                     hostname,
                 ],
                 text=True,
@@ -296,8 +328,9 @@ def run_measurement(output_queue, path, port, type, cached_int):
     output_queue.put(list(zip(server_data, client_measurements)))
 
 
-def experiment_run_timers(path, type, cached_int):
-    tasks = [(path, port, type, cached_int) for port in SERVER_PORTS]
+def experiment_run_timers(experiment: Experiment, cached_int):
+    path = get_experiment_path(experiment)
+    tasks = [(port, experiment, cached_int) for port in SERVER_PORTS]
     output_queue = multiprocessing.Queue()
     processes = [
         multiprocessing.Process(target=run_measurement, args=(output_queue, *args))
@@ -360,56 +393,77 @@ def reverse_resolve_hostname() -> str:
     return socket.gethostbyaddr("10.99.0.1")[0]
 
 
-def get_filename(kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate) -> str:
-    fileprefix = f"{kex_alg}_{leaf}_{intermediate}"
+def get_filename(experiment: Experiment, cached_int, rtt_ms, pkt_loss, rate) -> Path:
+    fileprefix = f"{experiment.kex}_{experiment.leaf}_{experiment.intermediate}"
     if not cached_int:
-        fileprefix += f"_{root}"
+        fileprefix += f"_{experiment.root}"
     fileprefix += f"_{rtt_ms}ms"
     caching_type = "int-chain" if not cached_int else "int-only"
-    filename = SCRIPTDIR.parent / "data" / f"{type}-{caching_type}/{fileprefix}_{pkt_loss}_{rate}mbit.csv"
+    filename = SCRIPTDIR.parent / "data" / f"{experiment.type}-{caching_type}" / f"{fileprefix}_{pkt_loss}_{rate}mbit.csv"
     return filename
 
 
 def setup_experiments() -> None:
     # get unique combinations
     combinations = set(
-        get_experiment_instantiation(kex_alg, leaf, inter, root) 
-        for (_, kex_alg, leaf, inter, root) in ALGORITHMS
+        get_experiment_instantiation(experiment) 
+        for experiment in ALGORITHMS
     )
 
-    for (kex, leaf, inter, root) in combinations:
-        expath = get_experiment_path(kex, leaf, inter, root)
+    for experiment in combinations:
+        expath = get_experiment_path(experiment)
         if expath.exists():
             logging.warning("Not regenerating '%s'", expath)
             continue
+        
         subprocess.run(
-            [SCRIPTDIR / "create-experimental-setup.sh", kex, leaf, inter, root],
+            [
+                SCRIPTDIR / "create-experimental-setup.sh", 
+                experiment.kex,
+                experiment.leaf,
+                experiment.intermediate or "ERROR", 
+                experiment.root or "ERROR",
+                experiment.client_auth or '',
+                experiment.client_ca or '',
+            ],
             check=True,
             capture_output=False,
         )
 
 
-def get_experiment_instantiation(kex_alg: str, leaf: str, intermediate: str, root: str) -> Tuple[str, str, str, str]:
-        # intermediate and root might be None, which means we'll need to match
-    for (_, kex_, leaf_, intermediate_, root_) in ALGORITHMS:
-        if kex_alg != kex_ or leaf != leaf_:
-            continue
-        if intermediate is None and intermediate_ is not None and root is not None and root == root_:
-            intermediate = intermediate_
+def get_experiment_instantiation(experiment: Experiment) -> Experiment:
+    # intermediate and root might be None, which means we'll need to match
+    no_client_auth = experiment.client_auth is None
+    for combo in ALGORITHMS:
+        if all(map(lambda ab: ab[1] is None or ab[0] == ab[1], zip(combo[1:], experiment[1:]))):
+            for (field, b) in enumerate(experiment._asdict().items()):
+                if b is None:
+                    setattr(experiment, field, getattr(combo, field))
             break
-        elif intermediate is None and root is None:
-            if intermediate_ is not None and root_ is not None:
-                intermediate = intermediate_
-                root = root_
-                break
-    intermediate = intermediate or "Dilithium2"
-    root = root or "Dilithium2"
 
-    return (kex_alg, leaf, intermediate, root)
+    experiment = experiment._replace(
+        intermediate=experiment.intermediate or "Dilithium2",
+        root=experiment.root or "Dilithium2"
+    )
+
+    if no_client_auth:
+        experiment = experiment._replace(
+            client_auth=None,
+            client_ca=None,
+        )
+
+    return experiment
 
 
-def get_experiment_path(kex_alg: str, leaf: str, intermediate: str, root: str) -> Path:
-    return SCRIPTDIR.parent / Path("bin") / f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
+def get_experiment_path(exp: Experiment) -> Path:
+    kex_alg = exp.kex
+    leaf = exp.leaf
+    intermediate = exp.intermediate
+    root = exp.root
+    dirname = f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
+    if exp.client_auth is not None:
+        dirname += f"-{exp.client_auth}-{exp.client_ca}".lower()
+    return SCRIPTDIR.parent / Path("bin") / dirname
 
 
 def main():
@@ -426,26 +480,27 @@ def main():
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for ((type, kex_alg, leaf, intermediate, root), cached_int, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
-            (kex_alg, leaf, intermediate, root) = get_experiment_instantiation(kex_alg, leaf, intermediate, root)
+        for (experiment, cached_int, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
+            (type, kex_alg, leaf, intermediate, root, client_auth, client_ca) = experiment
+            experiment = get_experiment_instantiation(experiment)
             logging.info(
                 f"Experiment for {type} {kex_alg} {leaf} {intermediate} "
-                f"{root} for {rtt_ms}ms latency with "
+                f"{root} " + 
+                (f"(client auth: {client_auth} signed by {client_ca})" if client_auth is not None else "") +
+                f"for {rtt_ms}ms latency with "
                 f"{'cached intermediate' if cached_int else 'full cert chain'} "
                 f"and {pkt_loss}% loss on {rate}mbit"
             )
-
-            experiment_path = get_experiment_path(kex_alg, leaf, intermediate, root)
 
             change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
             change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)
             result = []
             filename = get_filename(
-                kex_alg, leaf, intermediate, root, type, cached_int, rtt_ms, pkt_loss, rate
+                experiment, cached_int, rtt_ms, pkt_loss, rate
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
-                result += experiment_run_timers(experiment_path, type, cached_int)
+                result += experiment_run_timers(experiment, cached_int)
             duration = datetime.datetime.utcnow() - start_time
             logging.info("took %s", duration)
 
@@ -461,7 +516,7 @@ if __name__ == "__main__":
     logging.info("PDK experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "pdk")))
     logging.info("Sign-cached experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign-cached")))
 
-    only_unique_experiments()
+    #only_unique_experiments()
     
     setup_experiments()
     hostname = reverse_resolve_hostname()

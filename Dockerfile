@@ -58,7 +58,7 @@ WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN cargo build --release --examples
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
-# (and those follow from pqclean / oqs)
+# (and those follow from liboqs)
 ARG KEX_ALG="Kyber512"
 # re-export build args as env vars
 ENV KEX_ALG     $KEX_ALG
@@ -72,13 +72,17 @@ RUN cargo build --release --example tlsserver && \
     cargo build --release --example tlsclient
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
-# (and those follow from pqclean / oqs)
+# (and those follow from liboqs)
 ARG ROOT_SIGALG="Dilithium2"
 ARG INT_SIGALG="Dilithium2"
 ARG LEAF_ALG="Dilithium2"
-ENV ROOT_SIGALG $ROOT_SIGALG
-ENV INT_SIGALG  $INT_SIGALG
-ENV LEAF_ALG    $LEAF_ALG
+ARG CLIENT_AUTH="Kyber512"
+ARG CLIENT_CA_ALG="Dilithium2"
+ENV ROOT_SIGALG   $ROOT_SIGALG
+ENV INT_SIGALG    $INT_SIGALG
+ENV LEAF_ALG      $LEAF_ALG
+ENV CLIENT_AUTH   $CLIENT_AUTH
+ENV CLIENT_CA_ALG $CLIENT_CA_ALG
 
 # actually generate the certificates
 WORKDIR  /usr/src/pqtls/mk-cert
