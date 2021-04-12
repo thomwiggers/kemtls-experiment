@@ -111,14 +111,11 @@ def format_results_tex(avgs):
     with open(
         PROCESSED_PATH / f"processed_results_{latency}_{loss}_{rate}.tex", "a+"
     ) as texfile:
-        if avgs["type"] == "kem":
-            texfile.write(macro("encrypting", avgs["client client encrypting traffic"]))
-        elif avgs["type"] == "sign":
-            texfile.write(macro("encrypting", avgs["client handshake completed"]))
+        texfile.write(macro("encrypting", avgs["client writing to server"]))
 
         texfile.write(macro("clientdone", avgs["client handshake completed"]))
         texfile.write(macro("serverdone", avgs["server handshake completed"]))
-        texfile.write(macro("clientgotreply", avgs["client received server reply"]))
+        #texfile.write(macro("clientgotreply", avgs["client received server reply"]))
 
 
 def process_experiment(experiment):
@@ -147,7 +144,7 @@ def write_averages(experiments):
 
 
 EXPERIMENT_REGEX = re.compile(
-    r"(?P<type>(kem|sign))-(?P<cached>(int-chain|cached))/"
+    r"(?P<type>(kemtls|sign))-(?P<cached>(int-chain|no-root))/"
     r"(?P<kex>[^_]+)_(?P<leaf>[^_]+)_(?P<int>[^_]+)(_(?P<root>[^_]+))?"
     r"_(?P<rtt>\d+\.\d+)ms_(?P<drop_rate>\d+(\.\d+)?)_(?P<rate>\d+mbit).csv"
 )
@@ -163,7 +160,7 @@ def get_experiment(filename):
     matches = EXPERIMENT_REGEX.match(relpath)
     assert matches
     experiment = {}
-    experiment["cached_int"] = matches.group("cached") == "cached"
+    experiment["cached_int"] = matches.group("cached") == "no-root"
     for item in ["type", "kex", "leaf", "int", "root", "rtt", "drop_rate", "rate"]:
         experiment[item] = matches.group(item)
     experiment["name"] = get_experiment_name(
