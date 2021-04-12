@@ -272,7 +272,7 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
     clientname = "tlsclient"
     LAST_MSG = "RECEIVED SERVER REPLY"
     type = experiment.type
-    if type == "sign":
+    if type == "sign" or type == "sign-cached":
         caname = "signing" + ("-int" if cached_int else "-ca") + ".crt"
     elif type == "kemtls" or type == "pdk":
         caname = "kem" + ("-int" if cached_int else "-ca") + ".crt"
@@ -351,7 +351,7 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
         logging.error("No data available from server")
         sys.exit(1)
     (server_cmd, server_data) = outpipe.recv()
-    if len(server_data) == len(client_measurements):
+    if len(server_data) != len(client_measurements):
         logging.error(f"Process on {port} out of sync {len(server_data)} != {len(client_measurements)}")
         sys.exit(1)
 
