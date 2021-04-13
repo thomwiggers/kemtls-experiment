@@ -14,11 +14,57 @@ DATAPATH = pathlib.Path(__file__).parent.absolute().parent / "data"
 PROCESSED_PATH = DATAPATH / ".." / "processed"
 
 
-def get_experiment_name(kex, leaf, inter, root):
-    if kex == "X25519":
-        kex = "E"
+#: Renames for the key exchange
+KEX_RENAMES = {
+    "X25519": "E",
+    "SIKEp434Compressed": "Sc",
+}
 
-    return f"{kex[0]}{leaf[0]}{inter[0]}{root[0] if root else ''}".upper()
+SIG_RENAMES = dict()
+
+#: Renames for the leaf algorithm: combination of signature schemes and KEX
+AUTH_RENAMES = dict()
+AUTH_RENAMES.update(KEX_RENAMES)
+AUTH_RENAMES.update(SIG_RENAMES)
+
+
+def get_experiment_name(experiment):
+    kex = experiment["kex"]
+    leaf = experiment["leaf"]
+    inter = experiment["int"]
+    root = experiment["root"]
+    clauth = experiment["clauth"]
+    clca = experiment["clca"]
+
+    type = ""
+    if experiment["type"] == "pdk":
+        type = "pdk"
+    elif experiment["type"] == "kemtls":
+        type = "kemtls"
+    elif experiment["type"] == "sign-cached":
+        type = "sigcache"
+    else:
+        assert experiment["type"] == "sign", f"{experiment['type']} unknown"
+        type = "sig"
+
+    kex = KEX_RENAMES.get(kex, kex[0].upper())
+    leaf = AUTH_RENAMES.get(leaf, leaf[0].upper())
+    if inter is not None and type != "pdk":
+        inter = SIG_RENAMES.get(inter, inter[0].upper())
+    elif inter is None or type == "pdk":
+        inter = ""
+    if root is not None and type != "pdk":
+        root = SIG_RENAMES.get(root, root[0].upper())
+    elif root is None or type == "pdk":
+        root = ""
+
+    authpart = ""
+    if clauth is not None:
+        clauth = AUTH_RENAMES.get(clauth, clauth[0].upper())
+        clca = SIG_RENAMES.get(clca, clca[0].upper())
+        authpart = f"auth{clauth}{clca}"
+
+    return f"{type}{kex}{leaf}{inter}{root}{authpart}"
 
 
 def read_csv_lines(filename):
@@ -43,8 +89,8 @@ def get_averages(filename):
             sums[key].append(int(val) / 1000)  # convert to microseconds
     results = {}
     for key in sums.keys():
-        results[key] = statistics.mean(sums[key])
-        results[f"{key} stdev"] = statistics.stdev(sums[key])
+        results[key] = round(statistics.mean(sums[key]), 3)
+        results[f"{key} stdev"] = round(statistics.stdev(sums[key]), 3)
 
     return (dict(results), len(sums[key]))
 
@@ -55,7 +101,9 @@ AVG_FIELDS = [
     "leaf",
     "int",
     "root",
-    "cached_int",
+    "clauth",
+    "clca",
+    "int-only",
     "rtt",
     "drop_rate",
     "rate",
@@ -65,15 +113,27 @@ AVG_FIELDS = [
     *chain.from_iterable(
         (f"client {key}", f"client {key} stdev")
         for key in [
-            "emitted ch",
-            "derived ephemeral keys",
+            "start",
+            "creating keyshares",
+            "created keyshares",
+            "created pdk encapsulation",
+            "sending chelo",
             "received sh",
-            "encapsulating to server",
+            "decapsulating ephemeral",
+            "decapsulated ephemeral",
+            "derived hs",
+            "received cert",
             "submitted ckex to server",
-            "switched to ahs keys",
-            "client encrypting traffic",
+            "encapsulating to cert",
+            "encapsulated to cert",
+            "derived ahs",
+            "emit cert",
+            "derived ms",
+            "emitted finished",
+            "received finished",
             "authenticated server",
             "handshake completed",
+            "writing to server",
             "received server reply",
         ]
     ),
@@ -81,16 +141,27 @@ AVG_FIELDS = [
     *chain.from_iterable(
         (f"server {key}", f"server {key} stdev")
         for key in [
-            "encapsulated ephemeral",
+            "received client hello",
+            "encapsulating to ephemeral",
+            "encapsulated to ephemeral",
             "emitted sh",
-            "derived ephemeral keys",
-            "sent certificate",
+            "pdk decapsulating from certificate",
+            "pdk decapsulating from certificate",
+            "pdk decapsulated from certificate",
+            "derived hs",
+            "emitted certificate",
+            "emitting certv",
             "received ckex",
-            "decapsulated ckex",
-            "switched to ahs keys",
-            "emitted sf",
-            "server encrypting traffic",
-            "server reading traffic",
+            "decapsulating from certificate",
+            "decapsulated from certificate",
+            "derived ahs",
+            "received certificate",
+            "received certv",
+            "received finished",
+            "authenticated client",
+            "emitted finished",
+            "reading traffic",
+            "writing to client",
             "handshake completed",
         ]
     ),
@@ -115,7 +186,7 @@ def format_results_tex(avgs):
 
         texfile.write(macro("clientdone", avgs["client handshake completed"]))
         texfile.write(macro("serverdone", avgs["server handshake completed"]))
-        #texfile.write(macro("clientgotreply", avgs["client received server reply"]))
+        texfile.write(macro("clientgotreply", avgs["client received server reply"]))
 
 
 def process_experiment(experiment):
@@ -128,6 +199,8 @@ def process_experiment(experiment):
 
 
 def write_averages(experiments):
+    names = set()
+
     with multiprocessing.Pool() as p:
         avgses = p.map(process_experiment, experiments)
 
@@ -135,17 +208,21 @@ def write_averages(experiments):
         writer = csv.DictWriter(csvfile, fieldnames=AVG_FIELDS)
         writer.writeheader()
         for avgs in avgses:
-            print(
-                f"{avgs['name']}: Server reply: {avgs['client received server reply']}"
-            )
-            print(f"{avgs['name']}: Server done: {avgs['server handshake completed']}")
+            # Sanity check
+            name = avgs["name"]
+            assert name not in names, f"Already seen {name}"
+            names.add(name)
+            
+            print(f"{name}: Server reply: {avgs['client received server reply']}")
+            print(f"{name}: Server done: {avgs['server handshake completed']}")
             writer.writerow(avgs)
             format_results_tex(avgs)
 
 
 EXPERIMENT_REGEX = re.compile(
-    r"(?P<type>(kemtls|sign))-(?P<cached>(int-chain|no-root))/"
+    r"(?P<type>(kemtls|sign|sign-cached|pdk))-(?P<cached>(int-chain|int-only))/"
     r"(?P<kex>[^_]+)_(?P<leaf>[^_]+)_(?P<int>[^_]+)(_(?P<root>[^_]+))?"
+    r"(_clauth_(?P<clauth>[^_]+)_(?P<clca>[^_]+))?"
     r"_(?P<rtt>\d+\.\d+)ms_(?P<drop_rate>\d+(\.\d+)?)_(?P<rate>\d+mbit).csv"
 )
 
@@ -158,14 +235,27 @@ def get_experiments():
 def get_experiment(filename):
     relpath = str(filename.relative_to(DATAPATH))
     matches = EXPERIMENT_REGEX.match(relpath)
-    assert matches
+    assert matches, f"Experiment '{relpath}' doesn't match regex"
     experiment = {}
-    experiment["cached_int"] = matches.group("cached") == "no-root"
-    for item in ["type", "kex", "leaf", "int", "root", "rtt", "drop_rate", "rate"]:
+    experiment["int-only"] = matches.group("cached") == "int-only"
+    for item in [
+        "type",
+        "kex",
+        "leaf",
+        "int",
+        "root",
+        "clauth",
+        "clca",
+        "rtt",
+        "drop_rate",
+        "rate",
+    ]:
         experiment[item] = matches.group(item)
-    experiment["name"] = get_experiment_name(
-        experiment["kex"], experiment["leaf"], experiment["int"], experiment["root"]
-    )
+
+    if experiment["int-only"]:
+        assert experiment["root"] is None
+
+    experiment["name"] = get_experiment_name(experiment)
 
     return experiment
 

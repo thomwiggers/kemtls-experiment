@@ -17,7 +17,7 @@ tag=${KEX_ALG,,}-${LEAF_ALG,,}-${INT_SIGALG,,}-${ROOT_SIGALG,,}
 
 extra_args=
 if [ "$CLIENT_AUTH" != "" ]; then
-    tag=${tag}-${CLIENT_AUTH,,}-${CLIENT_CA_ALG,,}
+    tag=${tag}-clauth-${CLIENT_AUTH,,}-${CLIENT_CA_ALG,,}
     extra_args="--build-arg CLIENT_AUTH=$CLIENT_AUTH --build-arg CLIENT_CA_ALG=$CLIENT_CA_ALG"
 fi
 
