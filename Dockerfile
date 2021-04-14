@@ -1,7 +1,7 @@
 # Author: Thom Wiggers <thom@thomwiggers.nl>
 # LICENSE: CC0
 #
-FROM rust:latest AS builder
+FROM rust:1.51 AS builder
 
 SHELL ["/bin/bash", "-c"]
 
@@ -52,6 +52,7 @@ RUN cargo build --release --examples
 # Set up certificates (will be parameterised by the env vars)
 WORKDIR  /usr/src/pqtls/mk-cert
 RUN pipenv install
+# Precompile kemutil and signutil for build caches
 WORKDIR /usr/src/pqtls/mk-cert/kemutil
 RUN cargo build --release
 WORKDIR /usr/src/pqtls/mk-cert/signutil
