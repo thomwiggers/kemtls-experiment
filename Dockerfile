@@ -57,6 +57,11 @@ RUN cargo build --release
 WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN cargo build --release --examples
 
+# pre-Compile tlsserver and tlsclient examples
+WORKDIR /usr/src/pqtls/rustls/rustls-mio/
+RUN cargo build --release --example tlsserver && \
+    cargo build --release --example tlsclient
+
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from liboqs)
 ARG KEX_ALG="Kyber512"
@@ -67,7 +72,6 @@ ENV KEX_ALG     $KEX_ALG
 RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG}'@' /usr/src/pqtls/rustls/rustls/src/client/default_group.rs
 
 # Compile tlsserver and tlsclient examples
-WORKDIR /usr/src/pqtls/rustls/rustls-mio/
 RUN cargo build --release --example tlsserver && \
     cargo build --release --example tlsclient
 
