@@ -16,6 +16,31 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union, Literal
 import sys
 
+###################################################################################################
+## SETTTINGS ######################################################################################
+###################################################################################################
+
+# Original set of latencies
+# LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
+LATENCIES = ["2.0ms"]
+#LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
+LOSS_RATES = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+NUM_PINGS = 5  # for measuring the practical latency
+#SPEEDS = [1000, 10]
+SPEEDS = [1000]
+
+# xvzcf's experiment used POOL_SIZE = 40
+# We start as many servers as clients, so make sure to adjust accordingly
+ITERATIONS = 2
+POOL_SIZE = 40
+START_PORT = 10000
+SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
+MEASUREMENTS_PER_PROCESS = 50
+MEASUREMENTS_PER_CLIENT = 10
+
+###################################################################################################
+
+
 SCRIPTDIR = Path(sys.path[0]).resolve()
 sys.path.append(str(SCRIPTDIR.parent.parent / "mk-cert"))
 
@@ -182,25 +207,6 @@ def only_unique_experiments() -> None:
         seen.add((exp.type, exp.client_auth is None))
         return exp
     ALGORITHMS = [update(exp) for exp in ALGORITHMS if (exp.type, exp.client_auth is None) not in seen]
-
-# Original set of latencies
-# LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
-LATENCIES = ["2.0ms"]
-#LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
-LOSS_RATES = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
-NUM_PINGS = 5  # for measuring the practical latency
-#SPEEDS = [1000, 10]
-SPEEDS = [1000]
-
-
-# xvzcf's experiment used POOL_SIZE = 40
-# We start as many servers as clients, so make sure to adjust accordingly
-ITERATIONS = 1
-POOL_SIZE = 1
-START_PORT = 10000
-SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 5
-MEASUREMENTS_PER_CLIENT = 5
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -582,16 +588,16 @@ def main():
 
         for (experiment, int_only, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
             (type, kex_alg, leaf, intermediate, root, client_auth, client_ca) = experiment
-            if type == "pdk" and not int_only:
+            if type in ("pdk", "sign-cached") and not int_only:
                 # Skip PDK variants like KKDD, they don't make sense as the cert isn't sent.
                 continue
             experiment = get_experiment_instantiation(experiment)
             logger.info(
-                f"Experiment for {type} {kex_alg} {leaf} {intermediate} "
-                f"{root} " + 
+                f"Experiment for {type} {kex_alg} {leaf} {intermediate if intermediate is not None else ''} "
+                (f"{root} " if not int_only else "") + 
                 (f"(client auth: {client_auth} signed by {client_ca}) " if client_auth is not None else "") +
                 f"for {rtt_ms}ms latency with "
-                f"{'int_only' if int_only else 'full cert chain'} "
+                f"{'intermediate only' if int_only else 'full cert chain'} "
                 f"and {pkt_loss}% loss on {rate}mbit"
             )
 
@@ -614,7 +620,7 @@ def main():
 
 
 if __name__ == "__main__":
-    level = logging.DEBUG
+    level = getattr(logging, os.environ.get("DEBUG", "INFO"))
     logger = logging.getLogger("BENCHMARKER")
     logger.setLevel(level)
 
@@ -626,7 +632,7 @@ if __name__ == "__main__":
 
     logger.addHandler(ch)
     
-    if len(sys.argv) == 1 or sys.argv[1] != "full":
+    if len(sys.argv) < 2 or sys.argv[1] != "full":
         logger.warning("Running only one experiment of each type")
         only_unique_experiments()
 

@@ -21,4 +21,4 @@ fi
 
 sudo killall -9 tlsserver  || true
 
-ntfy done sudo python3.9 -u scripts/experiment.py
+ntfy done sudo -E python3.9 -u scripts/experiment.py $@
