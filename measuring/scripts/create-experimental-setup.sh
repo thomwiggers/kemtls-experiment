@@ -9,16 +9,16 @@ export KEX_ALG="${1:-Kyber512}"
 export LEAF_ALG="${2:-Dilithium2}"
 export INT_SIGALG="${3:-Dilithium2}"
 export ROOT_SIGALG="${4:-Dilithium2}"
-export CLIENT_AUTH="${5}"
+export CLIENT_ALG="${5}"
 export CLIENT_CA_ALG="${6}"
 
 
 tag=${KEX_ALG,,}-${LEAF_ALG,,}-${INT_SIGALG,,}-${ROOT_SIGALG,,}
 
 extra_args=
-if [ "$CLIENT_AUTH" != "" ]; then
-    tag=${tag}-clauth-${CLIENT_AUTH,,}-${CLIENT_CA_ALG,,}
-    extra_args="--build-arg CLIENT_AUTH=$CLIENT_AUTH --build-arg CLIENT_CA_ALG=$CLIENT_CA_ALG"
+if [ "$CLIENT_ALG" != "" ]; then
+    tag=${tag}-clauth-${CLIENT_ALG,,}-${CLIENT_CA_ALG,,}
+    extra_args="--build-arg CLIENT_ALG=$CLIENT_ALG --build-arg CLIENT_CA_ALG=$CLIENT_CA_ALG"
 fi
 
 docker build \

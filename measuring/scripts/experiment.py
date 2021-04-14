@@ -89,6 +89,8 @@ ALGORITHMS = [
     Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
     Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
     Experiment('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
+    #   KEMTLS + CA
+    Experiment("kemtls", "Kyber512", "Kyber512", "Dilithium2", "Dilithium2", "Kyber512", "Dilithium2"),
     # KEMTLS PDK experiments
     #  TLS with cached certs
     Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", "RSA2048"),
@@ -99,6 +101,16 @@ ALGORITHMS = [
             ("Lightsaber", "Dilithium2"),
             ("NtruHps2048509", "Falcon512"),
             ("Kyber512", "RainbowIClassic"),
+        ]
+    ),
+    #  TLS with cached certs + client auth
+    *(
+        Experiment("sign-cached", kex, sig, client_auth=clauth, client_ca=clca)
+        for kex, sig, clauth, clca in [
+            ("Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+            ("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
+            ("NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
+            ("Kyber512", "RainbowIClassic", "RainbowIClassic", "RainbowIClassic"),
         ]
     ),
     #  PDK
@@ -117,6 +129,22 @@ ALGORITHMS = [
             "FrodoKem640Shake",
             "SikeP434",
             "SikeP434Compressed",
+        ]
+    ),
+    #    With mutual auth
+    *(
+        Experiment("pdk", kex, kex, client_auth=clauth, client_ca=clca)
+        for kex, clauth, clca in [
+            ("Kyber512", "Kyber512", "Dilithium2"),
+            ("Lightsaber", "Lightsaber", "Dilithium2"),
+            ("NtruHps2048509", "NtruHps2048509", "Falcon512"),
+            ("Hqc128", "Hqc128", "RainbowIClassic"),
+            ("NtruPrimeNtrulpr653", "NtruPrimeNtrulpr653", "Falcon512"),
+            ("NtruPrimeSntrup653", "NtruPrimeSntrup653", "Falcon512"),
+            ("BikeL1Fo", "BikeL1Fo", "RainbowIClassic"),
+            ("FrodoKem640Shake", "FrodoKem640Shake", "SphincsSha256128sSimple"),
+            ("SikeP434", "SikeP434", "RainbowIClassic"),
+            ("SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic"),  
         ]
     ),
     #   Special combos with McEliece
@@ -386,7 +414,7 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
     output_queue.put((' '.join(cmd), server_cmd, list(zip(server_data, client_measurements))))
 
 
-def experiment_run_timers(experiment: Experiment, cached_int) -> Tuple[str, str, List[Dict[str, Any]]]:
+def experiment_run_timers(experiment: Experiment, cached_int: bool) -> Tuple[str, str, List[Dict[str, Any]]]:
     path = get_experiment_path(experiment)
     tasks = [(port, experiment, cached_int) for port in SERVER_PORTS]
     output_queue = multiprocessing.Queue()
@@ -395,7 +423,8 @@ def experiment_run_timers(experiment: Experiment, cached_int) -> Tuple[str, str,
         for args in tasks
     ]
     results = []
-    logger.debug(f"Starting processes on {path} for {experiment}")
+    rpath = path.relative_to(SCRIPTDIR.parent)
+    logger.debug(f"Starting processes on {rpath} for {experiment}")
     for process in processes:
         process.start()
 
@@ -403,7 +432,7 @@ def experiment_run_timers(experiment: Experiment, cached_int) -> Tuple[str, str,
     for _ in range(len(processes)):
         results.append(output_queue.get())
 
-    logger.debug(f"Joining processes on {path} for {experiment}")
+    logger.debug(f"Joining processes on {rpath} for {experiment}")
     for process in processes:
         process.join(5)
 
@@ -434,7 +463,7 @@ def get_rtt_ms():
     return result_fmt[4]
 
 
-def write_result(outfile, outlog, results):
+def write_result(outfile: io.TextIOBase, outlog: io.TextIOBase, results: Tuple[str, str, List[Any]]):
     client_cmd = results[0]
     server_cmd = results[1]
     server_keys = results[2][0][0].keys()
@@ -485,6 +514,7 @@ def setup_experiments() -> None:
         if expath.exists():
             logger.info("Not regenerating '%s'", expath.name)
             continue
+        logger.info("Regenerating '%s'", expath.name)
         
         subprocess.run(
             [

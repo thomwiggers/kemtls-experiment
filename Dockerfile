@@ -76,12 +76,12 @@ RUN cargo build --release --example tlsserver && \
 ARG ROOT_SIGALG="Dilithium2"
 ARG INT_SIGALG="Dilithium2"
 ARG LEAF_ALG="Dilithium2"
-ARG CLIENT_AUTH="Kyber512"
+ARG CLIENT_ALG="Kyber512"
 ARG CLIENT_CA_ALG="Dilithium2"
 ENV ROOT_SIGALG   $ROOT_SIGALG
 ENV INT_SIGALG    $INT_SIGALG
 ENV LEAF_ALG      $LEAF_ALG
-ENV CLIENT_AUTH   $CLIENT_AUTH
+ENV CLIENT_ALG   $CLIENT_ALG
 ENV CLIENT_CA_ALG $CLIENT_CA_ALG
 
 # actually generate the certificates
