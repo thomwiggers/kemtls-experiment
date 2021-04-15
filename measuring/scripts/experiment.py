@@ -593,7 +593,8 @@ def main():
                 continue
             experiment = get_experiment_instantiation(experiment)
             logger.info(
-                f"Experiment for {type} {kex_alg} {leaf} {intermediate if intermediate is not None else ''} "
+                f"Experiment for {type} {kex_alg} {leaf} " +
+                (f"{intermediate} " if intermediate is not None else "") +
                 (f"{root} " if not int_only else "") + 
                 (f"(client auth: {client_auth} signed by {client_ca}) " if client_auth is not None else "") +
                 f"for {rtt_ms}ms latency with "
