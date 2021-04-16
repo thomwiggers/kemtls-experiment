@@ -301,8 +301,9 @@ class ServerProcess(multiprocessing.Process):
             if result:
                 label = result.group("label")
                 if label in measurements:
-                    logger.error("We're adding the same label twice to the same measurement")
+                    logger.error("We're adding the same label '%s' twice to the same measurement", label)
                     logger.error("measurements=%r", measurements)
+                    # XXX: this kills the measureing
                     raise ValueError(f"label '{label}' already exisited in measurement")
                 measurements[label] = result.group("timing")
                 if label == self.last_msg:
