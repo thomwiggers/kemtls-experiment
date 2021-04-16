@@ -47,7 +47,8 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
    It is used by the ``./measuring/script/create-experimental-setup.sh`` script, which serves as an example of its use.
 * The `mk-certs` folder contains a python script, `encoder.py`, that can be used to create the required PKI.
    RSA certificates and X25519 certificates are available in subfolders.
-   The certificates assume that the server hostname is ``servername``.
+   The certificates assume that the server hostname is ``servername``, so put this in your `/etc/hosts`.
+   Alternatively, override it using the environment variables in the file (which is also how you set which algorithms are used).
 * Experimenting with ``rustls-pqtls`` or ``rustls-kemtls`` can be done directly; use the ``rustls-mio`` subfolders
    and run ``cargo run --example tlsserver -- --help`` or ``cargo run --example tlsclient -- --help``.
 * The measurement setup is handled in the `measuring/` folder. See the `./run_experiment.sh` script.
