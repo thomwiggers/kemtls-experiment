@@ -19,26 +19,19 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
 
 ### Main folders
 
-* ``rustls-kemtls``: modified Rustls TLS stack to implement KEMTLS
-* ``rustls-pqtls``: Rustls with support for KEM kex and PQ signature schemes
+* ``rustls-kemtls``: modified Rustls TLS stack to implement KEMTLS and post-quantum versions of "normal" TLS 1.3
 * ``measuring``: The scripts to measure the above
-* ``ring``: Modified version of Ring to work with KEMs and PQ signatures
+* ``ring``: Modified version of Ring to allow for longer DER-encoded strings than typically expected from TLS instances.
 * ``webpki``: Modified version of WebPKI to work with PQ and KEM public keys in certificates
-* ``mk-cert``: Utility scripts to create post-quantum PKI for pqtls and KEMTLS
+* ``mk-cert``: Utility scripts to create post-quantum PKI for pqtls and KEMTLS.
 
 ### Supporting repositories
 
-* ``oqs-rs``: Rust wrapper around ``liboqs``.
-    * ``oqs-rs/oqs-sys/liboqs`` is a version of ``liboqs`` with additional (AVX2) implementations
-* ``pqcrypto``: Rust wrappers around ``PQClean``
-    * ``pqcrypto/pqclean``: Modified version of PQClean with additional (AVX2) implementations
+* [``oqs-rs``][]: Rust wrapper around ``liboqs``.
 * ``mk-cert/xmss-rs``: Rust wrapper around the XMSS reference code, with our custom parameter set (``src/settings.rs``) and utilities for keygen and signing.
 * ``csidh-rust``: Rust wrapper around the Meyer, Campos, Reith constant-time implementation of CSIDH.
 
-### Miscelaneous dependencies
-
-* ``tls-hacking``: Contains a generator for the ``src/msgs/enums.rs`` file in ``rustls``.
-    Updating `enums.rs` is needed to add cryptographic primitives. The generator helps keeping enums in sync.
+[``oqs-rs``]: https://github.com/open-quantum-safe/liboqs-rust.git
 
 ## Working with this repository
 
@@ -49,7 +42,7 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
    RSA certificates and X25519 certificates are available in subfolders.
    The certificates assume that the server hostname is ``servername``, so put this in your `/etc/hosts`.
    Alternatively, override it using the environment variables in the file (which is also how you set which algorithms are used).
-* Experimenting with ``rustls-pqtls`` or ``rustls-kemtls`` can be done directly; use the ``rustls-mio`` subfolders
+* Experimenting with ``rustls`` can be done directly; use the ``rustls-mio`` subfolders
    and run ``cargo run --example tlsserver -- --help`` or ``cargo run --example tlsclient -- --help``.
 * The measurement setup is handled in the `measuring/` folder. See the `./run_experiment.sh` script.
 * Processing of results is done by the `./scripts/process.py` folder. It expects a `data` folder as produced by `./scripts/experiment.py`.
