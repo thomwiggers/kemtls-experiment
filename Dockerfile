@@ -26,6 +26,10 @@ ENV RUST_MIN_STACK "20971520"
 # Copy in the source
 COPY mk-cert /usr/src/pqtls/mk-cert
 
+# cleanup
+WORKDIR /usr/src/pqtls/mk-cert
+RUN ./clean.sh
+
 # populate cargo build caches
 WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN echo "pub use oqs::sig::Algorithm::Dilithium2 as alg;" > src/lib.rs
