@@ -1,7 +1,7 @@
 # Author: Thom Wiggers <thom@thomwiggers.nl>
 # LICENSE: CC0
 #
-FROM rust:1.51 AS builder
+FROM rust:1.51-bullseye AS builder
 
 SHELL ["/bin/bash", "-c"]
 
@@ -11,9 +11,9 @@ ADD https://apt.llvm.org/llvm-snapshot.gpg.key /llvm.key
 RUN apt-key add /llvm.key
 
 # Install requirements
-RUN echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster-10 main" > /etc/apt/sources.list.d/llvm.list
+RUN echo "deb http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-12 main" > /etc/apt/sources.list.d/llvm.list
 RUN apt-get update  -qq
-RUN apt-get install -qq -y pipenv libssl-dev cmake clang-10 llvm-10
+RUN apt-get install -qq -y pipenv libssl-dev cmake clang-12 llvm-12
 
 # Default C compiler
 # XXX: Somehow clang breaks.
@@ -98,7 +98,7 @@ WORKDIR  /usr/src/pqtls/mk-cert
 RUN      pipenv run python encoder.py
 
 # Set up clean environment
-FROM debian:buster
+FROM debian:bullseye
 
 # Install libssl1.1
 RUN apt-get update -qq \
