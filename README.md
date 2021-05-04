@@ -26,7 +26,7 @@ Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without hand
   author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
   title = {Post-quantum {TLS} without handshake signatures},
   year = 2021,
-  month = may,
+  month = apr,
   note = {full online version},
   url = {https://ia.cr/2020/534},
 }
