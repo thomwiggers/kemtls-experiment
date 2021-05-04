@@ -12,3 +12,5 @@ mk-cert/tbs*
 *.a
 *.so
 measuring/*
+rustls/Cargo.lock
+webpki/Cargo.lock

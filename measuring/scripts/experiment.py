@@ -21,13 +21,13 @@ import sys
 ###################################################################################################
 
 # Original set of latencies
-# LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
-LATENCIES = ["2.0ms"]
-#LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
+#LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
+#LATENCIES = ["2.0ms"]
+LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
 LOSS_RATES = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
-NUM_PINGS = 5  # for measuring the practical latency
+NUM_PINGS = 10  # for measuring the practical latency
 #SPEEDS = [1000, 10]
-SPEEDS = [1000]
+SPEEDS = [1000, 10]
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
@@ -35,8 +35,8 @@ ITERATIONS = 2
 POOL_SIZE = 40
 START_PORT = 10000
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 50
-MEASUREMENTS_PER_CLIENT = 10
+MEASUREMENTS_PER_PROCESS = 200
+MEASUREMENTS_PER_CLIENT = 200
 
 ###################################################################################################
 
@@ -58,7 +58,7 @@ GROUPID = int(os.environ.get("SUDO_GID", 1001))
 class CustomFormatter(logging.Formatter):
     """
     Logging Formatter to add colors and count warning / errors
-    
+
     https://stackoverflow.com/a/56944256/248065
     """
 
@@ -118,14 +118,18 @@ ALGORITHMS = [
     Experiment("kemtls", "Kyber512", "Kyber512", "Dilithium2", "Dilithium2", "Kyber512", "Dilithium2"),
     # KEMTLS PDK experiments
     #  TLS with cached certs
-    Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign-cached", "X25519", "RSA2048", "RSA2048"),
+    Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", client_auth="RSA2048", client_ca="RSA2048"),
     *(
         Experiment("sign-cached", kex, sig)
         for kex, sig in [
             ("Kyber512", "Dilithium2"),
             ("Lightsaber", "Dilithium2"),
             ("NtruHps2048509", "Falcon512"),
-            ("Kyber512", "RainbowIClassic"),
+            # Minimal Finalist
+            #("NtruHps2048509", "RainbowIClassic"),
+            # Minimal
+            ("SikeP434Compressed", "RainbowIClassic"),
         ]
     ),
     #  TLS with cached certs + client auth
@@ -135,7 +139,10 @@ ALGORITHMS = [
             ("Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
             ("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
             ("NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
-            ("Kyber512", "RainbowIClassic", "RainbowIClassic", "RainbowIClassic"),
+            # Minimal Finalist
+            #("NtruHps2048509", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
+            # Minimal
+            ("SikeP434Compressed", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
         ]
     ),
     #  PDK
@@ -163,26 +170,24 @@ ALGORITHMS = [
             ("Kyber512", "Kyber512", "Dilithium2"),
             ("Lightsaber", "Lightsaber", "Dilithium2"),
             ("NtruHps2048509", "NtruHps2048509", "Falcon512"),
-            ("Hqc128", "Hqc128", "RainbowIClassic"),
-            ("NtruPrimeNtrulpr653", "NtruPrimeNtrulpr653", "Falcon512"),
-            ("NtruPrimeSntrup653", "NtruPrimeSntrup653", "Falcon512"),
-            ("BikeL1Fo", "BikeL1Fo", "RainbowIClassic"),
-            ("FrodoKem640Shake", "FrodoKem640Shake", "SphincsSha256128sSimple"),
-            ("SikeP434", "SikeP434", "RainbowIClassic"),
-            ("SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic"),  
+            # Minimal Finalist
+            #("NtruHps2048509", "NtruHps2048509", "RainbowIClassic"),
+            # Minimal
+            ("SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic"),
         ]
     ),
     #   Special combos with McEliece
     *(
         Experiment("pdk", "ClassicMcEliece348864", kex)
         for kex in [
-            "Kyber512",
-            "Lightsaber",
-            "NtruHps2048509",
-            "SikeP434",
+            # Minimal Finalist
+            #"NtruHps2048509",
+            # Minimal
             "SikeP434Compressed",
         ]
     ),
+    # McEliece + Mutual
+    Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
 ]
 
 # Validate choices
@@ -296,15 +301,19 @@ class ServerProcess(multiprocessing.Process):
             if not line:
                 logger.debug("Invalid line from server")
                 break
-    
+
             result = TIMER_REGEX.match(line)
             if result:
                 label = result.group("label")
                 if label in measurements:
                     logger.error("We're adding the same label '%s' twice to the same measurement", label)
                     logger.error("measurements=%r", measurements)
-                    # XXX: this kills the measureing
-                    raise ValueError(f"label '{label}' already exisited in measurement")
+                    # XXX: this kills the measuring
+                    if label == "RECEIVED CLIENT HELLO":
+                        logger.warning("Resetting measurement")
+                        measurements = {}
+                    else:
+                        raise ValueError(f"label '{label}' already exisited in measurement")
                 measurements[label] = result.group("timing")
                 if label == self.last_msg:
                     collected_measurements.append(measurements)
@@ -494,7 +503,11 @@ def write_result(outfile: io.TextIOBase, outlog: io.TextIOBase, results: Tuple[s
 
 
 def reverse_resolve_hostname() -> str:
-    return socket.gethostbyaddr("10.99.0.1")[0]
+    try:
+        return socket.gethostbyaddr("10.99.0.1")[0]
+    except:
+        logger.exception("You probably need to set up '10.99.0.1' in servername in /etc/hosts")
+        raise
 
 
 def get_filename(experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate, ext="csv") -> Path:
@@ -512,7 +525,7 @@ def get_filename(experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate,
 def setup_experiments() -> None:
     # get unique combinations
     combinations = set(
-        get_experiment_instantiation(experiment) 
+        get_experiment_instantiation(experiment)
         for experiment in ALGORITHMS
     )
 
@@ -522,13 +535,13 @@ def setup_experiments() -> None:
             logger.info("Not regenerating '%s'", expath.name)
             continue
         logger.info("Regenerating '%s'", expath.name)
-        
+
         subprocess.run(
             [
-                SCRIPTDIR / "create-experimental-setup.sh", 
+                SCRIPTDIR / "create-experimental-setup.sh",
                 experiment.kex,
                 experiment.leaf,
-                experiment.intermediate or "ERROR", 
+                experiment.intermediate or "ERROR",
                 experiment.root or "ERROR",
                 experiment.client_auth or '',
                 experiment.client_ca or '',
@@ -587,7 +600,11 @@ def main():
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for (experiment, int_only, pkt_loss, rate) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES, SPEEDS):
+        for (experiment, int_only, pkt_loss) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES):
+            if latency_ms == LATENCIES[0]:
+                rate = 1000
+            else:
+                rate = 10
             (type, kex_alg, leaf, intermediate, root, client_auth, client_ca) = experiment
             if type in ("pdk", "sign-cached") and not int_only:
                 # Skip PDK variants like KKDD, they don't make sense as the cert isn't sent.
@@ -596,7 +613,7 @@ def main():
             logger.info(
                 f"Experiment for {type} {kex_alg} {leaf} " +
                 (f"{intermediate} " if intermediate is not None else "") +
-                (f"{root} " if not int_only else "") + 
+                (f"{root} " if not int_only else "") +
                 (f"(client auth: {client_auth} signed by {client_ca}) " if client_auth is not None else "") +
                 f"for {rtt_ms}ms latency with "
                 f"{'intermediate only' if int_only else 'full cert chain'} "
@@ -633,7 +650,21 @@ if __name__ == "__main__":
     ch.setFormatter(CustomFormatter())
 
     logger.addHandler(ch)
-    
+
+    if (type := os.environ.get("EXPERIMENT")) is not None:
+        ALGORITHMS = filter(lambda x: x.type == type, ALGORITHMS)
+    if (kex := os.environ.get("KEX")) is not None:
+        ALGORITHMS = filter(lambda x: x.kex == kex, ALGORITHMS)
+    if (leaf := os.environ.get("LEAF")) is not None:
+        ALGORITHMS = filter(lambda x: x.leaf == leaf, ALGORITHMS)
+    if (root := os.environ.get("ROOT")) is not None:
+        ALGORITHMS = filter(lambda x: x.root == root, ALGORITHMS)
+    if (client_auth := os.environ.get("CLIENT_AUTH")) is not None:
+        ALGORITHMS = filter(lambda x: x.client_auth == client_auth, ALGORITHMS)
+    if (client_ca := os.environ.get("CLIENT_CA")) is not None:
+        ALGORITHMS = filter(lambda x: x.client_ca == client_ca, ALGORITHMS)
+    ALGORITHMS = list(ALGORITHMS)
+
     if len(sys.argv) < 2 or sys.argv[1] != "full":
         logger.warning("Running only one experiment of each type")
         only_unique_experiments()
