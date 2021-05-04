@@ -181,7 +181,7 @@ def format_results_tex(avgs):
     rate = avgs["rate"]
 
     macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs['name']
-
+    
     def macro(name, number):
         number = "%0.1f" % (number / 1000)
         return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}  % {avgs['filename']}" "\n"
