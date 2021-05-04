@@ -12,3 +12,6 @@
 [submodule "ring"]
 	path = ring
 	url = https://github.com/thomwiggers/ring.git
+[submodule "oqs-rs"]
+	path = oqs-rs
+	url = https://github.com/thomwiggers/oqs-rs.git

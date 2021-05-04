@@ -17,7 +17,7 @@ PROCESSED_PATH = DATAPATH / ".." / "processed"
 #: Renames for the key exchange
 KEX_RENAMES = {
     "X25519": "E",
-    "SIKEp434Compressed": "Sc",
+    "SikeP434Compressed": "Sc",
 }
 
 SIG_RENAMES = dict()
@@ -49,9 +49,9 @@ def get_experiment_name(experiment):
 
     kex = KEX_RENAMES.get(kex, kex[0].upper())
     leaf = AUTH_RENAMES.get(leaf, leaf[0].upper())
-    if inter is not None and type != "pdk":
+    if inter is not None and type not in ("pdk", "sigcache"):
         inter = SIG_RENAMES.get(inter, inter[0].upper())
-    elif inter is None or type == "pdk":
+    elif inter is None or type in ("pdk", "sigcache"):
         inter = ""
     if root is not None and type != "pdk":
         root = SIG_RENAMES.get(root, root[0].upper())
@@ -109,6 +109,7 @@ AVG_FIELDS = [
     "rate",
     "measurements",
     "name",
+    "filename",
     # client keys
     *chain.from_iterable(
         (f"client {key}", f"client {key} stdev")
@@ -128,6 +129,8 @@ AVG_FIELDS = [
             "encapsulated to cert",
             "derived ahs",
             "emit cert",
+            "decapsulating from ccert",
+            "decapsulated from ccert",
             "derived ms",
             "emitted finished",
             "received finished",
@@ -149,6 +152,8 @@ AVG_FIELDS = [
             "pdk decapsulating from certificate",
             "pdk decapsulated from certificate",
             "derived hs",
+            "pdk encapsulating to ccert",
+            "pdk encapsulated to ccert",
             "emitted certificate",
             "emitting certv",
             "received ckex",
@@ -156,6 +161,8 @@ AVG_FIELDS = [
             "decapsulated from certificate",
             "derived ahs",
             "received certificate",
+            "encapsulating to client",
+            "submitted skex to client",
             "received certv",
             "received finished",
             "authenticated client",
@@ -169,18 +176,18 @@ AVG_FIELDS = [
 
 
 def format_results_tex(avgs):
-    latency = avgs["rtt"]
+    latency = float(avgs["rtt"])
     loss = avgs["drop_rate"]
     rate = avgs["rate"]
 
-    macro_name_base = f"res{avgs['name']}"
+    macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs['name']
 
     def macro(name, number):
         number = "%0.1f" % (number / 1000)
-        return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}" "\n"
+        return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}  % {avgs['filename']}" "\n"
 
     with open(
-        PROCESSED_PATH / f"processed_results_{latency}_{loss}_{rate}.tex", "a+"
+        PROCESSED_PATH / f"processed_results_{latency:0.1f}_{loss}_{rate}.tex", "a+"
     ) as texfile:
         texfile.write(macro("encrypting", avgs["client writing to server"]))
 
@@ -208,9 +215,11 @@ def write_averages(experiments):
         writer = csv.DictWriter(csvfile, fieldnames=AVG_FIELDS)
         writer.writeheader()
         for avgs in avgses:
-            # Sanity check
             name = avgs["name"]
-            assert name not in names, f"Already seen {name}"
+            #print(f"{name}: from {avgs['filename']}")
+
+            # Sanity check
+            assert (name, avgs["rtt"]) not in names, f"Already seen {name}"
             names.add(name)
             
             print(f"{name}: Server reply: {avgs['client received server reply']}")
@@ -238,6 +247,7 @@ def get_experiment(filename):
     assert matches, f"Experiment '{relpath}' doesn't match regex"
     experiment = {}
     experiment["int-only"] = matches.group("cached") == "int-only"
+    experiment["filename"] = filename.name
     for item in [
         "type",
         "kex",
