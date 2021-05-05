@@ -2,15 +2,34 @@
 
 This repository accompanies
 
-Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/534. May 2020.
+* Peter Schwabe, Douglas Stebila and Thom Wiggers. **More efficient KEMTLS with pre-distributed public keys.** Draft paper
+* Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** ACM CCS 2020.
+* Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/534. April 2021.
 
 ```
-@unpublished{EPRINT:SchSteWig20,
+@inproceedings{CCS:SchSteWig20,
+  author = {Schwabe, Peter and Stebila, Douglas and Wiggers, Thom},
+  title = {Post-Quantum {TLS} Without Handshake Signatures},
+  year = {2020},
+  isbn = {9781450370899},
+  publisher = {Association for Computing Machinery},
+  address = {New York, {NY}, {USA}},
+  url = {https://thomwiggers.nl/publication/kemtls/},
+  doi = {10.1145/3372297.3423350},
+  booktitle = {Proceedings of the 2020 {ACM} {SIGSAC} Conference on Computer and Communications Security},
+  pages = {1461–1480},
+  numpages = {20},
+  keywords = {transport layer security, key-encapsulation mechanism, {NIST PQC}, post-quantum cryptography},
+  location = {Virtual Event, {USA}},
+  series = {{CCS '20}}
+}
+
+@online{EPRINT:SchSteWig20,
   author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
   title = {Post-quantum {TLS} without handshake signatures},
-  year = 2020,
-  month = may,
-  note = {preprint on {IACR} {ePrint} archive},
+  year = 2021,
+  month = apr,
+  note = {full online version},
   url = {https://ia.cr/2020/534},
 }
 ```
