@@ -1,7 +1,7 @@
 # Author: Thom Wiggers <thom@thomwiggers.nl>
 # LICENSE: CC0
 #
-FROM rust:1.51-bullseye AS builder
+FROM rust:1.52-bullseye AS builder
 
 SHELL ["/bin/bash", "-c"]
 

@@ -35,8 +35,8 @@ ITERATIONS = 2
 POOL_SIZE = 40
 START_PORT = 10000
 SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 200
-MEASUREMENTS_PER_CLIENT = 200
+MEASUREMENTS_PER_PROCESS = 500
+MEASUREMENTS_PER_CLIENT = 500
 
 ###################################################################################################
 
@@ -104,18 +104,24 @@ ALGORITHMS = [
     Experiment('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
-    Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
-    Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
+    #Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowIClassic", "RainbowIClassic"),
     Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
     Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
-    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
-    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic"),
+    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic"),
     Experiment('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
     #   KEMTLS + CA
     Experiment("kemtls", "Kyber512", "Kyber512", "Dilithium2", "Dilithium2", "Kyber512", "Dilithium2"),
+    Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
+    Experiment("kemtls", "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512", "NtruHps2048509", "Falcon512"),
+    Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
     # KEMTLS PDK experiments
     #  TLS with cached certs
     Experiment("sign-cached", "X25519", "RSA2048", "RSA2048"),
@@ -124,8 +130,9 @@ ALGORITHMS = [
         Experiment("sign-cached", kex, sig)
         for kex, sig in [
             ("Kyber512", "Dilithium2"),
-            ("Lightsaber", "Dilithium2"),
+            #("Lightsaber", "Dilithium2"),
             ("NtruHps2048509", "Falcon512"),
+            #("Kyber512", "RainbowIClassic"),
             # Minimal Finalist
             #("NtruHps2048509", "RainbowIClassic"),
             # Minimal
@@ -137,7 +144,7 @@ ALGORITHMS = [
         Experiment("sign-cached", kex, sig, client_auth=clauth, client_ca=clca)
         for kex, sig, clauth, clca in [
             ("Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
-            ("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
+            #("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
             ("NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
             # Minimal Finalist
             #("NtruHps2048509", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
@@ -153,13 +160,15 @@ ALGORITHMS = [
             "Kyber512",
             "Lightsaber",
             "NtruHps2048509",
-            "ClassicMcEliece348864",
-            "Hqc128",
-            "NtruPrimeNtrulpr653",
-            "NtruPrimeSntrup653",
-            "BikeL1Fo",
-            "FrodoKem640Shake",
-            "SikeP434",
+            #"ClassicMcEliece348864",
+            #"Hqc128",
+            #"NtruPrimeNtrulpr653",
+            #"NtruPrimeSntrup653",
+            #"BikeL1Fo",
+            #"FrodoKem640Shake",
+
+            #"SikeP434",
+            # Minimal
             "SikeP434Compressed",
         ]
     ),
@@ -170,6 +179,12 @@ ALGORITHMS = [
             ("Kyber512", "Kyber512", "Dilithium2"),
             ("Lightsaber", "Lightsaber", "Dilithium2"),
             ("NtruHps2048509", "NtruHps2048509", "Falcon512"),
+            #("Hqc128", "Hqc128", "RainbowIClassic"),
+            #("NtruPrimeNtrulpr653", "NtruPrimeNtrulpr653", "Falcon512"),
+            #("NtruPrimeSntrup653", "NtruPrimeSntrup653", "Falcon512"),
+            #("BikeL1Fo", "BikeL1Fo", "RainbowIClassic"),
+            #("FrodoKem640Shake", "FrodoKem640Shake", "SphincsSha256128sSimple"),
+            #("SikeP434", "SikeP434", "RainbowIClassic"),
             # Minimal Finalist
             #("NtruHps2048509", "NtruHps2048509", "RainbowIClassic"),
             # Minimal
@@ -178,8 +193,10 @@ ALGORITHMS = [
     ),
     #   Special combos with McEliece
     *(
-        Experiment("pdk", "ClassicMcEliece348864", kex)
+        Experiment("pdk", kex, leaf="ClassicMcEliece348864")
         for kex in [
+            #"Kyber512",
+            #"Lightsaber",
             # Minimal Finalist
             #"NtruHps2048509",
             # Minimal

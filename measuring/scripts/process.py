@@ -193,6 +193,7 @@ def format_results_tex(avgs):
 
         texfile.write(macro("clientdone", avgs["client handshake completed"]))
         texfile.write(macro("serverdone", avgs["server handshake completed"]))
+        texfile.write(macro("serverexplicitauthed", avgs.get("client authenticated server", avgs["client received finished"])))
         texfile.write(macro("clientgotreply", avgs["client received server reply"]))
 
 
