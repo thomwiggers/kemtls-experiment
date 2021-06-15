@@ -20,7 +20,9 @@ KEX_RENAMES = {
     "SikeP434Compressed": "Sc",
 }
 
-SIG_RENAMES = dict()
+SIG_RENAMES = {
+    "RainbowICircumzenithal": "Rcz",
+}
 
 #: Renames for the leaf algorithm: combination of signature schemes and KEX
 AUTH_RENAMES = dict()
