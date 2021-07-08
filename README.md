@@ -36,9 +36,13 @@ This repository accompanies
 
 ## Overview of this repository
 
+The below are all [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules).
+If you want to make a fork of this repository, you will need to also fork the relevant submodules and update your `.gitmodules`.
+See also the notes below.
+
 ### Main folders
 
-* ``rustls-kemtls``: modified Rustls TLS stack to implement KEMTLS and post-quantum versions of "normal" TLS 1.3
+* ``rustls``: modified Rustls TLS stack to implement KEMTLS and post-quantum versions of "normal" TLS 1.3
 * ``measuring``: The scripts to measure the above
 * ``ring``: Modified version of Ring to allow for longer DER-encoded strings than typically expected from TLS instances.
 * ``webpki``: Modified version of WebPKI to work with PQ and KEM public keys in certificates
@@ -46,15 +50,15 @@ This repository accompanies
 
 ### Supporting repositories
 
-* [``oqs-rs``][]: Rust wrapper around ``liboqs``.
+* [``oqs-rs``][]: Rust wrapper around ``liboqs``. Contains additional implementations of schemes (notably AVX2 implementations).
 * ``mk-cert/xmss-rs``: Rust wrapper around the XMSS reference code, with our custom parameter set (``src/settings.rs``) and utilities for keygen and signing.
-* ``csidh-rust``: Rust wrapper around the Meyer, Campos, Reith constant-time implementation of CSIDH.
 
-[``oqs-rs``]: https://github.com/open-quantum-safe/liboqs-rust.git
+[``oqs-rs``]: https://github.com/open-quantum-safe/liboqs-rust
 
 ## Working with this repository
 
 * **MAKE SURE TO CLONE WITH __ALL__ SUBMODULES**. There are submodules _within_ submodules, so clone with ``--recurse-submodules``.
+* If you want to make a fork of this repository, you will need to also fork the relevant submodules and update your `.gitmodules`.
 * The Dockerfile serves as an example of how everything can be compiled and how test setups can be created.
    It is used by the ``./measuring/script/create-experimental-setup.sh`` script, which serves as an example of its use.
 * The `mk-certs` folder contains a python script, `encoder.py`, that can be used to create the required PKI.
