@@ -205,18 +205,26 @@ ALGORITHMS = [
     ),
     # McEliece + Mutual
     Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
+    # OPTLS
+    *(
+        Experiment("optls", alg, alg, "Falcon512", "RainbowIClassic")
+        for alg in (
+            "CSIDH2047D221",
+        )
+    ),
 ]
 
 # Validate choices
 def __validate_experiments() -> None:
-    known_kems = [kem[1] for kem in algorithms.kems] + ["X25519"]
+    nikes = [alg.upper() for alg in algorithms.nikes]
+    known_kexes = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
     known_sigs = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
     for (_, kex, leaf, int, root, client_auth, client_ca) in ALGORITHMS:
-        assert kex in known_kems, f"{kex} is not a known KEM"
-        assert leaf in known_kems or leaf in known_sigs, f"{leaf} is not a known algorithm"
+        assert kex in known_kexes, f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
+        assert leaf in known_kexes or leaf in known_sigs, f"{leaf} is not a known algorithm"
         assert int is None or int in known_sigs, f"{int} is not a known signature algorithm"
         assert root is None or root in known_sigs, f"{root} is not a known signature algorithm"
-        assert client_auth is None or client_auth in known_sigs or client_auth in known_kems, \
+        assert client_auth is None or client_auth in known_sigs or client_auth in known_kexes, \
             f"{client_auth} is not a known signature algorith or KEM"
         assert client_ca is None or client_ca in known_sigs, f"{client_ca} is not a known sigalg"
 __validate_experiments()
@@ -274,7 +282,7 @@ class ServerProcess(multiprocessing.Process):
         self.last_msg = "HANDSHAKE COMPLETED"
         self.servername = "tlsserver"
         self.type = experiment.type
-        self.clientauthopts = []
+        self.extra_opts = []
         type = experiment.type
         if type == "sign" or type == "sign-cached":
             self.certname = "signing" + (".chain" if not cached_int else "") + ".crt"
@@ -282,11 +290,14 @@ class ServerProcess(multiprocessing.Process):
         elif type == "kemtls" or type == "pdk":
             self.certname = "kem" + (".chain" if not cached_int else "") + ".crt"
             self.keyname = "kem.key"
+        elif type == "optls":
+            self.certname = "csidh" + (".chain" if not cached_int else "") + ".crt"
+            self.keyname = "csidh.key"
         else:
             raise ValueError(f"Invalid Experiment type in {experiment}")
 
         if experiment.client_auth is not None:
-            self.clientauthopts = ["--require-auth", "--auth", "client-ca.crt"]
+            self.extra_opts += ["--require-auth", "--auth", "client-ca.crt"]
 
     def run(self):
         cmd = [
@@ -295,7 +306,7 @@ class ServerProcess(multiprocessing.Process):
             "--certs", self.certname,
             "--key", self.keyname,
             "--port", self.port,
-            *self.clientauthopts,
+            *self.extra_opts,
             "http",
         ]
         logger.debug("Server cmd: %s", ' '.join(cmd))
@@ -365,6 +376,8 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
         caname = "signing" + ("-int" if cached_int else "-ca") + ".crt"
     elif type == "kemtls" or type == "pdk":
         caname = "kem" + ("-int" if cached_int else "-ca") + ".crt"
+    elif type == "optls":
+        caname = "csidh" + ("-int" if cached_int else "-ca") + ".crt"
     else:
         logger.error("Unknown experiment type=%s", type)
         sys.exit(1)
@@ -606,7 +619,9 @@ def get_experiment_path(exp: Experiment) -> Path:
 def main():
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=USERID, gid=GROUPID)
-    for (type, caching) in itertools.product(["kemtls", "sign", "sign-cached", "pdk"], ["int-chain", "int-only"]):
+    for (type, caching) in itertools.product(
+            ["kemtls", "sign", "sign-cached", "pdk", "optls"],
+            ["int-chain", "int-only"]):
         dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}"
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)

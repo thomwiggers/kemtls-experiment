@@ -41,6 +41,12 @@ RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
 RUN cargo update
 RUN cargo build --release
 
+COPY secsidh-rs /usr/src/pqtls/secsidh-rs
+WORKDIR /usr/src/pqtls/mk-cert/csidhutil
+RUN echo "pub use secsidh::csidh2047d221 as csidh;" > src/instance.rs
+RUN cargo update
+RUN cargo build --release
+
 WORKDIR /usr/src/pqtls/mk-cert/xmss-rs
 RUN cargo build --release
 
