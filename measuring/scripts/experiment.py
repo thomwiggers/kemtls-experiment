@@ -674,6 +674,8 @@ if __name__ == "__main__":
         ALGORITHMS = filter(lambda x: x.kex == kex, ALGORITHMS)
     if (leaf := os.environ.get("LEAF")) is not None:
         ALGORITHMS = filter(lambda x: x.leaf == leaf, ALGORITHMS)
+    if (intermediate := os.environ.get("INT")) is not None:
+        ALGORITHMS = filter(lambda x: x.intermediate == intermediate, ALGORITHMS)
     if (root := os.environ.get("ROOT")) is not None:
         ALGORITHMS = filter(lambda x: x.root == root, ALGORITHMS)
     if (client_auth := os.environ.get("CLIENT_AUTH")) is not None:
