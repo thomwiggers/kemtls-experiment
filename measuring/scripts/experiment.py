@@ -639,13 +639,15 @@ def main():
 
             change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
             change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)
-            result = []
+            result = ["", "", []]
             fngetter = partial(get_filename,
                 experiment, int_only, rtt_ms, pkt_loss, rate,
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
-                result += experiment_run_timers(experiment, int_only)
+                exp_ret = experiment_run_timers(experiment, int_only)
+                result[0:2] = exp_ret[0:2]
+                result[2] += exp_ret[2]
             duration = datetime.datetime.utcnow() - start_time
             logger.info("took %s", duration)
 
