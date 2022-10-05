@@ -2,11 +2,12 @@
 
 This repository accompanies
 
-* Peter Schwabe, Douglas Stebila and Thom Wiggers. **More efficient KEMTLS with pre-distributed public keys.** Draft paper
+* Peter Schwabe, Douglas Stebila and Thom Wiggers. **More efficient KEMTLS with pre-distributed public keys.** ESORICS 2021.
 * Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** ACM CCS 2020.
-* Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/534. April 2021.
+* Peter Schwabe, Douglas Stebila and Thom Wiggers. **More efficient KEMTLS with pre-distributed public keys.** IACR Cryptology ePrint Archive, Report 2021/779. Updated online version. March 2022.
+* Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/534. Updated online version. March 2022.
 
-```
+```bibtex
 @inproceedings{CCS:SchSteWig20,
   author = {Schwabe, Peter and Stebila, Douglas and Wiggers, Thom},
   title = {Post-Quantum {TLS} Without Handshake Signatures},
@@ -24,14 +25,41 @@ This repository accompanies
   series = {{CCS '20}}
 }
 
-@online{EPRINT:SchSteWig20,
+@misc{EPRINT:SchSteWig20,
   author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
   title = {Post-quantum {TLS} without handshake signatures},
-  year = 2021,
-  month = apr,
+  year = 2022,
+  month = mar,
   note = {full online version},
   url = {https://ia.cr/2020/534},
 }
+
+@inproceedings{ESORICS:SchSteWig21,
+  title = {More efficient post-quantum {KEMTLS} with pre-distributed public keys},
+  author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
+  year = 2021,
+  month = sep,
+  url = {https://thomwiggers.nl/publication/kemtlspdk/},
+  editor = {Bertino, Elisa and Shulman, Haya and Waidner, Michael},
+  booktitle = {Computer Security -- ESORICS 2021},
+  series = {Lecture Notes in Computer Science},
+  publisher = {Springer International Publishing},
+  address = {Cham},
+  pages = {3--22},
+  isbn = {978-3-030-88418-5},
+  doi = {10.1007/978-3-030-88418-5_1},
+}
+
+@misc{EPRINT:SchSteWig21,
+      author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
+      title = {More efficient post-quantum KEMTLS with pre-distributed public keys},
+      howpublished = {Cryptology ePrint Archive, Paper 2021/779},
+      year = {2022},
+      month = mar,
+      note = {full online version},
+      url = {https://eprint.iacr.org/2021/779}
+}
+
 ```
 
 ## Overview of this repository
