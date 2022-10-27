@@ -681,7 +681,9 @@ if __name__ == "__main__":
         ALGORITHMS = filter(lambda x: x.intermediate == intermediate, ALGORITHMS)
     if (root := os.environ.get("ROOT")) is not None:
         ALGORITHMS = filter(lambda x: x.root == root, ALGORITHMS)
-    if (client_auth := os.environ.get("CLIENT_AUTH")) is not None:
+    if "NO_CLIENT_AUTH" in os.environ:
+        ALGORITHMS = filter(lambda x: x.client_auth is None, ALGORITHMS)
+    elif (client_auth := os.environ.get("CLIENT_AUTH")) is not None:
         ALGORITHMS = filter(lambda x: x.client_auth == client_auth, ALGORITHMS)
     if (client_ca := os.environ.get("CLIENT_CA")) is not None:
         ALGORITHMS = filter(lambda x: x.client_ca == client_ca, ALGORITHMS)
