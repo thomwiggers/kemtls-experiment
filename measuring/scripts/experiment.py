@@ -85,7 +85,7 @@ class CustomFormatter(logging.Formatter):
 
 class Experiment(NamedTuple):
     """Represents an experiment"""
-    type: Union[Literal["sign"], Literal["pdk"], Literal["kemtls"], Literal["sign-cached"]]
+    type: Union[Literal["sign"], Literal["pdk"], Literal["kemtls"], Literal["sign-cached"], Literal["optls"]]
     kex: str
     leaf: str
     intermediate: Optional[str] = None
@@ -97,119 +97,125 @@ class Experiment(NamedTuple):
 ALGORITHMS = [
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT - CLIENT AUTH - CLIENT CA
-    Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048', "RSA2048", "RSA2048"),
+    #Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
+    #Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048', "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
     Experiment('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+    Experiment('sign', "Kyber512", "Falcon512", "RainbowICircumzenithal"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
-    Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
-    Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
+    #Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowIClassic", "RainbowIClassic"),
-    Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
+    #Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
-    Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
+    Experiment("kemtls", "Kyber512", "Kyber512", "RainbowICircumzenithal"),
+    Experiment("kemtls-pdk", "Kyber512", "Kyber512", "RainbowICircumzenithal"),
+    Experiment("kemtls", "SIKEP434Compressed", "SIKEP434Compressed", "RainbowICircumzenithal"),
+    Experiment("kemtls-pdk", "SIKEP434Compressed", "SIKEP434Compressed", "RainbowICircumzenithal"),
+    #Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
-    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
-    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
+    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic"),
-    Experiment('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
+    #Experiment('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
     #   KEMTLS + CA
-    Experiment("kemtls", "Kyber512", "Kyber512", "Dilithium2", "Dilithium2", "Kyber512", "Dilithium2"),
-    Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
-    Experiment("kemtls", "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512", "NtruHps2048509", "Falcon512"),
-    Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
+    #Experiment("kemtls", "Kyber512", "Kyber512", "Dilithium2", "Dilithium2", "Kyber512", "Dilithium2"),
+    #Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
+    #Experiment("kemtls", "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512", "NtruHps2048509", "Falcon512"),
+    #Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
     # KEMTLS PDK experiments
     #  TLS with cached certs
-    Experiment("sign-cached", "X25519", "RSA2048", "RSA2048"),
-    Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", client_auth="RSA2048", client_ca="RSA2048"),
-    *(
-        Experiment("sign-cached", kex, sig)
-        for kex, sig in [
-            ("Kyber512", "Dilithium2"),
-            #("Lightsaber", "Dilithium2"),
-            ("NtruHps2048509", "Falcon512"),
-            #("Kyber512", "RainbowIClassic"),
-            # Minimal Finalist
-            #("NtruHps2048509", "RainbowIClassic"),
-            # Minimal
-            ("SikeP434Compressed", "RainbowIClassic"),
-        ]
-    ),
+    #Experiment("sign-cached", "X25519", "RSA2048", "RSA2048"),
+    #Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", client_auth="RSA2048", client_ca="RSA2048"),
+    # *(
+    #     Experiment("sign-cached", kex, sig)
+    #     for kex, sig in [
+    #         ("Kyber512", "Dilithium2"),
+    #         #("Lightsaber", "Dilithium2"),
+    #         ("NtruHps2048509", "Falcon512"),
+    #         #("Kyber512", "RainbowIClassic"),
+    #         # Minimal Finalist
+    #         #("NtruHps2048509", "RainbowIClassic"),
+    #         # Minimal
+    #         ("SikeP434Compressed", "RainbowIClassic"),
+    #     ]
+    # ),
     #  TLS with cached certs + client auth
-    *(
-        Experiment("sign-cached", kex, sig, client_auth=clauth, client_ca=clca)
-        for kex, sig, clauth, clca in [
-            ("Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
-            #("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
-            ("NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
-            # Minimal Finalist
-            #("NtruHps2048509", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
-            # Minimal
-            ("SikeP434Compressed", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
-        ]
-    ),
+    # *(
+    #     Experiment("sign-cached", kex, sig, client_auth=clauth, client_ca=clca)
+    #     for kex, sig, clauth, clca in [
+    #         ("Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+    #         #("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
+    #         ("NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
+    #         # Minimal Finalist
+    #         #("NtruHps2048509", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
+    #         # Minimal
+    #         ("SikeP434Compressed", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
+    #     ]
+    # ),
     #  PDK
     #   Level 1
-    *(
-        Experiment("pdk", kex, kex)
-        for kex in [
-            "Kyber512",
-            "Lightsaber",
-            "NtruHps2048509",
-            #"ClassicMcEliece348864",
-            #"Hqc128",
-            #"NtruPrimeNtrulpr653",
-            #"NtruPrimeSntrup653",
-            #"BikeL1Fo",
-            #"FrodoKem640Shake",
+    # *(
+    #     Experiment("pdk", kex, kex)
+    #     for kex in [
+    #         "Kyber512",
+    #         "Lightsaber",
+    #         "NtruHps2048509",
+    #         #"ClassicMcEliece348864",
+    #         #"Hqc128",
+    #         #"NtruPrimeNtrulpr653",
+    #         #"NtruPrimeSntrup653",
+    #         #"BikeL1Fo",
+    #         #"FrodoKem640Shake",
 
-            #"SikeP434",
-            # Minimal
-            "SikeP434Compressed",
-        ]
-    ),
+    #         #"SikeP434",
+    #         # Minimal
+    #         "SikeP434Compressed",
+    #     ]
+    # ),
     #    With mutual auth
-    *(
-        Experiment("pdk", kex, kex, client_auth=clauth, client_ca=clca)
-        for kex, clauth, clca in [
-            ("Kyber512", "Kyber512", "Dilithium2"),
-            ("Lightsaber", "Lightsaber", "Dilithium2"),
-            ("NtruHps2048509", "NtruHps2048509", "Falcon512"),
-            #("Hqc128", "Hqc128", "RainbowIClassic"),
-            #("NtruPrimeNtrulpr653", "NtruPrimeNtrulpr653", "Falcon512"),
-            #("NtruPrimeSntrup653", "NtruPrimeSntrup653", "Falcon512"),
-            #("BikeL1Fo", "BikeL1Fo", "RainbowIClassic"),
-            #("FrodoKem640Shake", "FrodoKem640Shake", "SphincsSha256128sSimple"),
-            #("SikeP434", "SikeP434", "RainbowIClassic"),
-            # Minimal Finalist
-            #("NtruHps2048509", "NtruHps2048509", "RainbowIClassic"),
-            # Minimal
-            ("SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic"),
-        ]
-    ),
+    # *(
+    #     Experiment("pdk", kex, kex, client_auth=clauth, client_ca=clca)
+    #     for kex, clauth, clca in [
+    #         ("Kyber512", "Kyber512", "Dilithium2"),
+    #         ("Lightsaber", "Lightsaber", "Dilithium2"),
+    #         ("NtruHps2048509", "NtruHps2048509", "Falcon512"),
+    #         #("Hqc128", "Hqc128", "RainbowIClassic"),
+    #         #("NtruPrimeNtrulpr653", "NtruPrimeNtrulpr653", "Falcon512"),
+    #         #("NtruPrimeSntrup653", "NtruPrimeSntrup653", "Falcon512"),
+    #         #("BikeL1Fo", "BikeL1Fo", "RainbowIClassic"),
+    #         #("FrodoKem640Shake", "FrodoKem640Shake", "SphincsSha256128sSimple"),
+    #         #("SikeP434", "SikeP434", "RainbowIClassic"),
+    #         # Minimal Finalist
+    #         #("NtruHps2048509", "NtruHps2048509", "RainbowIClassic"),
+    #         # Minimal
+    #         ("SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic"),
+    #     ]
+    # ),
     #   Special combos with McEliece
-    *(
-        Experiment("pdk", kex, leaf="ClassicMcEliece348864")
-        for kex in [
-            #"Kyber512",
-            #"Lightsaber",
-            # Minimal Finalist
-            #"NtruHps2048509",
-            # Minimal
-            "SikeP434Compressed",
-        ]
-    ),
+    # *(
+    #     Experiment("pdk", kex, leaf="ClassicMcEliece348864")
+    #     for kex in [
+    #         #"Kyber512",
+    #         #"Lightsaber",
+    #         # Minimal Finalist
+    #         #"NtruHps2048509",
+    #         # Minimal
+    #         "SikeP434Compressed",
+    #     ]
+    # ),
     # McEliece + Mutual
-    Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
+    # Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
     # OPTLS
     *(
         Experiment("optls", alg, alg, "Falcon512", "RainbowIClassic")
         for alg in (
-            "CSIDH2047D221",
+            "CSIDH2047K221",
+            "CTIDH2047K221",
         )
     ),
 ]
