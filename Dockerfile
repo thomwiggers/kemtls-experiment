@@ -1,7 +1,7 @@
 # Author: Thom Wiggers <thom@thomwiggers.nl>
 # LICENSE: CC0
 #
-FROM rust:1.52-bullseye AS builder
+FROM rust:1.60-bullseye AS builder
 
 SHELL ["/bin/bash", "-c"]
 
@@ -41,9 +41,10 @@ RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
 RUN cargo update
 RUN cargo build --release
 
+COPY secsidh    /usr/src/pqtls
 COPY secsidh-rs /usr/src/pqtls/secsidh-rs
 WORKDIR /usr/src/pqtls/mk-cert/csidhutil
-RUN echo "pub use secsidh::csidh2047d221 as csidh;" > src/instance.rs
+RUN echo "pub use secsidh::csidh2047k221 as csidh;" > src/instance.rs
 RUN cargo update
 RUN cargo build --release
 
