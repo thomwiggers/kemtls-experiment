@@ -1,8 +1,10 @@
 """Based on https://github.com/xvzcf/pq-tls-benchmark/blob/master/emulation-exp/code/kex/experiment.py"""
 
 import csv
+from dataclasses import dataclass
 from functools import partial
 import multiprocessing
+from multiprocessing.connection import Connection
 import os
 import io
 import subprocess
@@ -13,7 +15,7 @@ import socket
 import logging
 import datetime
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union, Literal
+from typing import List, NamedTuple, Optional, Tuple, Union, Literal, cast
 import sys
 
 ###################################################################################################
@@ -31,18 +33,22 @@ SPEEDS = [1000, 10]
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
-ITERATIONS = 2
-POOL_SIZE = 40
 START_PORT = 10000
-SERVER_PORTS = [str(port) for port in range(10000, 10000+POOL_SIZE)]
-MEASUREMENTS_PER_PROCESS = 500
-MEASUREMENTS_PER_CLIENT = 500
+POOL_SIZE = 1
+ITERATIONS = 2
+# Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
+MEASUREMENTS_PER_ITERATION = 10
+MEASUREMENTS_PER_CLIENT = 2
 
 ###################################################################################################
 
+ResultType = dict[str, str]
+ResultListType = list[ResultType]
 
 SCRIPTDIR = Path(sys.path[0]).resolve()
 sys.path.append(str(SCRIPTDIR.parent.parent / "mk-cert"))
+
+SERVER_PORTS = [str(port) for port in range(START_PORT, START_PORT+POOL_SIZE)]
 
 
 import algorithms
@@ -67,14 +73,14 @@ class CustomFormatter(logging.Formatter):
     red = "\x1b[31;21m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format = "%(asctime)s - %(levelname)-8s - %(message)-50s (%(filename)s:%(lineno)d)"
+    format_tpl = "%(asctime)s - %(levelname)-8s - %(message)-50s (%(filename)s:%(lineno)d)"
 
     FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
+        logging.DEBUG: grey + format_tpl + reset,
+        logging.INFO: grey + format_tpl + reset,
+        logging.WARNING: yellow + format_tpl + reset,
+        logging.ERROR: red + format_tpl + reset,
+        logging.CRITICAL: bold_red + format_tpl + reset
     }
 
     def format(self, record):
@@ -82,10 +88,11 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
+ExperimentType = Union[Literal["sign"], Literal["pdk"], Literal["kemtls"], Literal["sign-cached"], Literal["optls"]]
 
 class Experiment(NamedTuple):
     """Represents an experiment"""
-    type: Union[Literal["sign"], Literal["pdk"], Literal["kemtls"], Literal["sign-cached"], Literal["optls"]]
+    type: ExperimentType
     kex: str
     leaf: str
     intermediate: Optional[str] = None
@@ -102,7 +109,7 @@ ALGORITHMS = [
     # KEMTLS paper
     #  PQ Signed KEX
     Experiment('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
-    Experiment('sign', "Kyber512", "Falcon512", "RainbowICircumzenithal"),
+    Experiment('sign', "Kyber512", "Falcon512", "Falcon512"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
@@ -110,10 +117,10 @@ ALGORITHMS = [
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowIClassic", "RainbowIClassic"),
     #Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
-    Experiment("kemtls", "Kyber512", "Kyber512", "RainbowICircumzenithal"),
-    Experiment("kemtls-pdk", "Kyber512", "Kyber512", "RainbowICircumzenithal"),
-    Experiment("kemtls", "SIKEP434Compressed", "SIKEP434Compressed", "RainbowICircumzenithal"),
-    Experiment("kemtls-pdk", "SIKEP434Compressed", "SIKEP434Compressed", "RainbowICircumzenithal"),
+    Experiment("kemtls", "Kyber512", "Kyber512", "Falcon512"),
+    Experiment("pdk", "Kyber512", "Kyber512", "Falcon512"),
+    #Experiment("kemtls", "SikeP434Compressed", "sikeP434Compressed", "Falcon512"),
+    #Experiment("pdk", "SikeP434Compressed", "SikeP434Compressed", "Falcon512"),
     #Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
     #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
@@ -212,7 +219,7 @@ ALGORITHMS = [
     # Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
     # OPTLS
     *(
-        Experiment("optls", alg, alg, "Falcon512", "RainbowIClassic")
+        Experiment("optls", alg, alg, "Falcon512", "Falcon512")
         for alg in (
             "CSIDH2047K221",
             "CTIDH2047K221",
@@ -222,9 +229,9 @@ ALGORITHMS = [
 
 # Validate choices
 def __validate_experiments() -> None:
-    nikes = [alg.upper() for alg in algorithms.nikes]
-    known_kexes = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
-    known_sigs = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
+    nikes: list[str] = [alg.upper() for alg in algorithms.nikes]
+    known_kexes: list[str] = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
+    known_sigs: list[str] = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
     for (_, kex, leaf, int, root, client_auth, client_ca) in ALGORITHMS:
         assert kex in known_kexes, f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
         assert leaf in known_kexes or leaf in known_sigs, f"{leaf} is not a known algorithm"
@@ -238,7 +245,7 @@ __validate_experiments()
 def only_unique_experiments() -> None:
     """get unique experiments: one of each type"""
     global ALGORITHMS
-    seen = set()
+    seen: set[tuple[ExperimentType, bool]] = set()
     def update(exp: Experiment) -> Experiment:
         seen.add((exp.type, exp.client_auth is None))
         return exp
@@ -262,13 +269,13 @@ def run_subprocess(command, working_dir=".", expected_returncode=0) -> str:
 
 def change_qdisc(ns, dev, pkt_loss, delay, rate=1000) -> None:
     if pkt_loss == 0:
-        command = [
+        command: list[str] = [
             "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
             "root", "netem", "limit", "1000", "delay", delay,
             "rate", f"{rate}mbit",
         ]
     else:
-        command = [
+        command: list[str] = [
             "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
             "root", "netem", "limit", "1000", "loss", "{0}%".format(pkt_loss),
             "delay", delay, "rate", f"{rate}mbit",
@@ -279,16 +286,16 @@ def change_qdisc(ns, dev, pkt_loss, delay, rate=1000) -> None:
 
 
 class ServerProcess(multiprocessing.Process):
-    def __init__(self, port, pipe, experiment: Experiment, cached_int=False):
+    def __init__(self, port: int, pipe: Connection, experiment: Experiment, cached_int=False):
         super().__init__(daemon=False)
         self.experiment = experiment
         self.path = get_experiment_path(experiment)
-        self.port = port
+        self.port = str(port)
         self.pipe = pipe
         self.last_msg = "HANDSHAKE COMPLETED"
         self.servername = "tlsserver"
         self.type = experiment.type
-        self.extra_opts = []
+        self.extra_opts: list[str] = []
         type = experiment.type
         if type == "sign" or type == "sign-cached":
             self.certname = "signing" + (".chain" if not cached_int else "") + ".crt"
@@ -306,7 +313,7 @@ class ServerProcess(multiprocessing.Process):
             self.extra_opts += ["--require-auth", "--auth", "client-ca.crt"]
 
     def run(self):
-        cmd = [
+        cmd: list[str] = [
             "ip", "netns", "exec", "srv_ns",
             f"./{self.servername}",
             "--certs", self.certname,
@@ -324,11 +331,14 @@ class ServerProcess(multiprocessing.Process):
         )
 
         logger.debug(f"Launching server on port {self.port}")
+        assert self.server_process.stdout is not None
         output_reader = io.TextIOWrapper(self.server_process.stdout, newline="\n")
-        measurements = {}
-        collected_measurements = []
+        measurements: ResultType = {}
+        collected_measurements: ResultListType = []
+        connections = 0
         while (
-            len(collected_measurements) < MEASUREMENTS_PER_PROCESS
+            # collect one extra result for warmup
+            len(collected_measurements) < MEASUREMENTS_PER_ITERATION
             and self.server_process.poll() is None
         ):
             line = output_reader.readline()
@@ -337,7 +347,7 @@ class ServerProcess(multiprocessing.Process):
                 break
 
             result = TIMER_REGEX.match(line)
-            if result:
+            if result is not None:
                 label = result.group("label")
                 if label in measurements:
                     logger.error("We're adding the same label '%s' twice to the same measurement", label)
@@ -350,7 +360,11 @@ class ServerProcess(multiprocessing.Process):
                         raise ValueError(f"label '{label}' already exisited in measurement")
                 measurements[label] = result.group("timing")
                 if label == self.last_msg:
-                    collected_measurements.append(measurements)
+                    if connections % (MEASUREMENTS_PER_CLIENT + 1) != 0:
+                        collected_measurements.append(measurements)
+                    else:
+                        logger.debug("skipping warmup measurement data on connection %d", connections)
+                    connections += 1
                     measurements = {}
             else:
                 logger.warn("Line '%s' did not match regex", line)
@@ -367,8 +381,9 @@ class ServerProcess(multiprocessing.Process):
             logger.exception("Timeout expired while waiting for server on {port} to terminate")
             self.server_process.kill()
 
+ExperimentOutput = tuple[str, str, list[tuple[ResultType, ResultType]]]
 
-def run_measurement(output_queue, port, experiment: Experiment, cached_int):
+def run_measurement(output_queue: "multiprocessing.Queue[ExperimentOutput]", port, experiment: Experiment, cached_int):
     (inpipe, outpipe) = multiprocessing.Pipe()
     server = ServerProcess(port, inpipe, experiment, cached_int)
     server.start()
@@ -388,10 +403,10 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
         logger.error("Unknown experiment type=%s", type)
         sys.exit(1)
 
-    client_measurements = []
+    client_measurements: ResultListType = []
     restarts = 0
-    allowed_restarts = 2 * MEASUREMENTS_PER_PROCESS / MEASUREMENTS_PER_CLIENT
-    cache_args = []
+    allowed_restarts = 2 * MEASUREMENTS_PER_ITERATION / MEASUREMENTS_PER_CLIENT
+    cache_args: list[str] = []
     if type == "pdk":
         cache_args = ["--cached-certs", "kem.crt"]
     elif type == "sign-cached":
@@ -399,18 +414,21 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
             cache_args = ["--cached-certs", "signing.all.crt"]
         else:
             cache_args = ["--cached-certs", "signing.chain.crt"]
-    clientauthopts = []
+    clientauthopts: list[str] = []
     if experiment.client_auth is not None:
-        clientauthopts = ["--auth-certs", "client.crt", "--auth-key", "client.key"]
-    while len(client_measurements) < MEASUREMENTS_PER_PROCESS and server.is_alive() and restarts < allowed_restarts:
+        clientauthopts: list[str] = ["--auth-certs", "client.crt", "--auth-key", "client.key"]
+    cmd: List[str] = []
+    expected_measurement_time: int = 200 if experiment.type == "optls" else 10
+    while len(client_measurements) < MEASUREMENTS_PER_ITERATION and server.is_alive() and restarts < allowed_restarts:
+        process_measurements: list[ResultType] = []
         logger.debug(f"Starting measurements on port {port}")
         cmd = [
             "ip", "netns", "exec", "cli_ns",
             f"./{clientname}",
             "--cafile", caname,
             "--loops",
-            str(min(MEASUREMENTS_PER_PROCESS - len(client_measurements),
-                    MEASUREMENTS_PER_CLIENT)),
+            str(min(MEASUREMENTS_PER_ITERATION - len(client_measurements),
+                    MEASUREMENTS_PER_CLIENT) + 1),
             "--port", port,
             "--no-tickets",
             "--http",
@@ -424,7 +442,7 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
                 cmd,
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=10 * MEASUREMENTS_PER_CLIENT,
+                timeout=expected_measurement_time * MEASUREMENTS_PER_CLIENT+1,
                 check=False,
                 cwd=path,
             )
@@ -435,46 +453,50 @@ def run_measurement(output_queue, port, experiment: Experiment, cached_int):
             server.kill()
             time.sleep(15)
             server.join(5)
-            server = ServerProcess(path, port, type, inpipe, cached_int)
+            server = ServerProcess(port, inpipe, experiment, cached_int=cached_int)
             server.start()
             continue
 
         logger.debug(f"Completed measurements on port {port}")
-        measurement = {}
+        measurement: ResultType = {}
         for line in proc_result.stdout.split("\n"):
             assert 'WebPKIError' not in line
             result = TIMER_REGEX.match(line)
             if result:
-                label = result.group("label")
+                label: str = result.group("label")
                 measurement[label] = result.group("timing")
                 if label == LAST_MSG:
-                    client_measurements.append(measurement)
+                    process_measurements.append(measurement)
                     measurement = {}
+        # don't collect the warmup connection
+        client_measurements.extend(process_measurements[1:])
         restarts += 1
+    assert cmd != []
 
     logger.debug("Joining server")
     server.join(5)
 
+
     if not outpipe.poll(10):
         logger.error("No data available from server")
         sys.exit(1)
-    (server_cmd, server_data) = outpipe.recv()
+    (server_cmd, server_data) = cast(tuple[str, ResultListType], outpipe.recv())
     if len(server_data) != len(client_measurements):
         logger.error(f"Process on {port} out of sync {len(server_data)} != {len(client_measurements)}")
         sys.exit(1)
 
-    output_queue.put((' '.join(cmd), server_cmd, list(zip(server_data, client_measurements))))
+    output: ExperimentOutput = (' '.join(cmd), server_cmd, list(zip(server_data, client_measurements)))
+    output_queue.put(output)
 
-
-def experiment_run_timers(experiment: Experiment, cached_int: bool) -> Tuple[str, str, List[Dict[str, Any]]]:
+def experiment_run_timers(experiment: Experiment, cached_int: bool) -> ExperimentOutput:
     path = get_experiment_path(experiment)
     tasks = [(port, experiment, cached_int) for port in SERVER_PORTS]
-    output_queue = multiprocessing.Queue()
+    output_queue: multiprocessing.Queue[ExperimentOutput] = multiprocessing.Queue()
     processes = [
         multiprocessing.Process(target=run_measurement, args=(output_queue, *args))
         for args in tasks
     ]
-    results = []
+    results: List[Tuple[str, str, List[Tuple[ResultType, ResultType]]]] = []
     rpath = path.relative_to(SCRIPTDIR.parent)
     logger.debug(f"Starting processes on {rpath} for {experiment}")
     for process in processes:
@@ -488,7 +510,7 @@ def experiment_run_timers(experiment: Experiment, cached_int: bool) -> Tuple[str
     for process in processes:
         process.join(5)
 
-    flattened = (results[0][0], results[0][1], [])
+    flattened: Tuple[str, str, List[Tuple[ResultType, ResultType]]]= (results[0][0], results[0][1], [])
     for _, _, measurements in results:
         flattened[2].extend(measurements)
 
@@ -515,18 +537,21 @@ def get_rtt_ms():
     return result_fmt[4]
 
 
-def write_result(outfile: io.TextIOBase, outlog: io.TextIOBase, results: Tuple[str, str, List[Any]]):
-    client_cmd = results[0]
-    server_cmd = results[1]
-    server_keys = results[2][0][0].keys()
-    client_keys = results[2][0][1].keys()
+def write_result(outfile: io.TextIOBase, outlog: io.TextIOBase, results: list[ExperimentOutput]):
+    client_cmd = results[0][0]
+    server_cmd = results[0][1]
+    server_keys = results[0][2][0][0].keys()
+    client_keys = results[0][2][0][1].keys()
     keys = [f"client {key.lower()}" for key in client_keys] + [
         f"server {key.lower()}" for key in server_keys
     ]
 
     writer = csv.DictWriter(outfile, keys)
     writer.writeheader()
-    for (server_result, client_result) in results[2]:
+    outputs: list[tuple[ResultType, ResultType]] = []
+    for r in results:
+        outputs.extend(r[2])
+    for (server_result, client_result) in outputs:
         row = {f"client {key.lower()}": value for (key, value) in client_result.items()}
         row.update(
             {f"server {key.lower()}": value for (key, value) in server_result.items()}
@@ -592,9 +617,9 @@ def get_experiment_instantiation(experiment: Experiment) -> Experiment:
     no_client_auth = experiment.client_auth is None
     for combo in ALGORITHMS:
         if all(map(lambda ab: ab[1] is None or ab[0] == ab[1], zip(combo[1:], experiment[1:]))):
-            for (field, b) in enumerate(experiment._asdict().items()):
-                if b is None:
-                    setattr(experiment, field, getattr(combo, field))
+            for (field, b) in experiment._asdict().items():
+                if b is not None:
+                    experiment._replace(**{field: getattr(combo, field)})
             break
 
     experiment = experiment._replace(
@@ -660,18 +685,16 @@ def main():
 
             change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
             change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)
-            result = ["", "", []]
+            result: list[ExperimentOutput] = []
             fngetter = partial(get_filename,
                 experiment, int_only, rtt_ms, pkt_loss, rate,
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
-                client_cmd, server_cmd, measurements = experiment_run_timers(experiment, int_only)
-                result[0] = client_cmd
-                result[1] = server_cmd
-                result[2] += measurements
+                result.append(experiment_run_timers(experiment, int_only))
             duration = datetime.datetime.utcnow() - start_time
-            logger.info("took %s", duration)
+            num_results = sum(len(r[2]) for r in result)
+            logger.info("took %s to collect %d results", duration, num_results)
 
             with open(fngetter("csv"), "w+") as outresult, open(fngetter("cmdline"), "w+") as outlog:
                 write_result(outresult, outlog, result)
@@ -717,6 +740,7 @@ if __name__ == "__main__":
     logger.info("Sign experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign")))
     logger.info("KEMTLS experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "kemtls")))
     logger.info("PDK experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "pdk")))
+    logger.info("OPTLS experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "optls")))
     logger.info("Sign-cached experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign-cached")))
 
     setup_experiments()
