@@ -183,7 +183,7 @@ def format_results_tex(avgs):
     rate = avgs["rate"]
 
     macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs['name']
-    
+
     def macro(name, number):
         number = "%0.1f" % (number / 1000)
         return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}  % {avgs['filename']}" "\n"
@@ -208,6 +208,28 @@ def process_experiment(experiment):
     return avgs
 
 
+# https://stackoverflow.com/a/54392761/248065
+def dump_lua(data):
+    if type(data) is str:
+        return f'"{data}"'
+    if type(data) in (int, float):
+        return f'{data}'
+    if type(data) is bool:
+        return data and "true" or "false"
+    if type(data) is list:
+        l = "{"
+        l += ", ".join([dump_lua(item) for item in data])
+        l += "}"
+        return l
+    if type(data) is dict:
+        t = "{"
+        t += ", ".join([f'[\"{k}\"]={dump_lua(v)}' for k,v in data.items()])
+        t += "}"
+        return t
+
+    assert False, f"Unknown type {type(data)}"
+
+
 def write_averages(experiments):
     names = set()
 
@@ -224,11 +246,31 @@ def write_averages(experiments):
             # Sanity check
             assert (name, avgs["rtt"]) not in names, f"Already seen {name}"
             names.add(name)
-            
+
             print(f"{name}: Server reply: {avgs['client received server reply']}")
             print(f"{name}: Server done: {avgs['server handshake completed']}")
             writer.writerow(avgs)
             format_results_tex(avgs)
+
+    lua_table = dict()
+    for avgs in avgses:
+        item = lua_table
+        for key_item in ("type", "rtt", "kex", "leaf", "int", "root", "clauth", "clca"):
+            key = avgs[key_item] or "none"
+            if key_item == "rtt":
+                key = f"{float(key):0.1f}"
+            if key not in item:
+                item[key] = {}
+            item = item[key]
+        for key_item in avgs.keys():
+            if key_item.startswith("server ") or key_item.startswith("client "):
+                item[key_item] = avgs[key_item] / 1000
+
+    with open(PROCESSED_PATH / "avgs.lua", "w+") as luafile:
+        luafile.write("measurement_results=")
+        luafile.write(dump_lua(lua_table))
+
+
 
 
 EXPERIMENT_REGEX = re.compile(
