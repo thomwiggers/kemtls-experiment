@@ -9,6 +9,8 @@ import re
 import statistics
 import multiprocessing
 
+from typing import Any
+
 
 DATAPATH = pathlib.Path(__file__).parent.absolute().parent / "data"
 PROCESSED_PATH = DATAPATH / ".." / "processed"
@@ -17,7 +19,11 @@ PROCESSED_PATH = DATAPATH / ".." / "processed"
 #: Renames for the key exchange
 KEX_RENAMES = {
     "X25519": "E",
+    "Kyber768": "Kiii",
+    "Falcon1024": "Fv",
     "SikeP434Compressed": "Sc",
+    "CSIDH2047K221": "Cs",
+    "CTIDH2047K221": "Ct",
 }
 
 SIG_RENAMES = {
@@ -30,13 +36,14 @@ AUTH_RENAMES.update(KEX_RENAMES)
 AUTH_RENAMES.update(SIG_RENAMES)
 
 
-def get_experiment_name(experiment):
+def get_experiment_name(experiment: dict[str, Any]):
     kex = experiment["kex"]
     leaf = experiment["leaf"]
     inter = experiment["int"]
     root = experiment["root"]
     clauth = experiment["clauth"]
     clca = experiment["clca"]
+    keycache = experiment["keycache"]
 
     type = ""
     if experiment["type"] == "pdk":
@@ -45,6 +52,8 @@ def get_experiment_name(experiment):
         type = "kemtls"
     elif experiment["type"] == "sign-cached":
         type = "sigcache"
+    elif experiment["type"] == "optls":
+        type = "optls"
     else:
         assert experiment["type"] == "sign", f"{experiment['type']} unknown"
         type = "sig"
@@ -66,7 +75,11 @@ def get_experiment_name(experiment):
         clca = SIG_RENAMES.get(clca, clca[0].upper())
         authpart = f"auth{clauth}{clca}"
 
-    return f"{type}{kex}{leaf}{inter}{root}{authpart}"
+    keycache = ""
+    if experiment["keycache"]:
+        keycache = "keycache"
+
+    return f"{type}{kex}{leaf}{inter}{root}{authpart}{keycache}"
 
 
 def read_csv_lines(filename):
@@ -106,6 +119,7 @@ AVG_FIELDS = [
     "clauth",
     "clca",
     "int-only",
+    "keycache",
     "rtt",
     "drop_rate",
     "rate",
@@ -274,7 +288,7 @@ def write_averages(experiments):
 
 
 EXPERIMENT_REGEX = re.compile(
-    r"(?P<type>(kemtls|sign|sign-cached|pdk))-(?P<cached>(int-chain|int-only))/"
+    r"(?P<type>(kemtls|sign|sign-cached|optls|pdk))-(?P<cached>(int-chain|int-only))(-(?P<keycache>keycache))?/"
     r"(?P<kex>[^_]+)_(?P<leaf>[^_]+)_(?P<int>[^_]+)(_(?P<root>[^_]+))?"
     r"(_clauth_(?P<clauth>[^_]+)_(?P<clca>[^_]+))?"
     r"_(?P<rtt>\d+\.\d+)ms_(?P<drop_rate>\d+(\.\d+)?)_(?P<rate>\d+mbit).csv"
@@ -292,6 +306,7 @@ def get_experiment(filename):
     assert matches, f"Experiment '{relpath}' doesn't match regex"
     experiment = {}
     experiment["int-only"] = matches.group("cached") == "int-only"
+    experiment["keycache"] = matches.group("keycache") == "keycache"
     experiment["filename"] = filename.name
     for item in [
         "type",

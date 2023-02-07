@@ -35,10 +35,10 @@ SPEEDS = [1000, 10]
 # We start as many servers as clients, so make sure to adjust accordingly
 START_PORT = 10000
 POOL_SIZE = 1
-ITERATIONS = 2
+ITERATIONS = 1
 # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
-MEASUREMENTS_PER_ITERATION = 10
-MEASUREMENTS_PER_CLIENT = 2
+MEASUREMENTS_PER_ITERATION = 20
+MEASUREMENTS_PER_CLIENT = 20
 
 ###################################################################################################
 
@@ -99,6 +99,7 @@ class Experiment(NamedTuple):
     root: Optional[str] = None
     client_auth: Optional[str] = None
     client_ca: Optional[str] = None
+    keygen_cache: bool = False
 
 
 ALGORITHMS = [
@@ -109,7 +110,9 @@ ALGORITHMS = [
     # KEMTLS paper
     #  PQ Signed KEX
     Experiment('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
+    Experiment('sign', "Kyber512", "Dilithium2", "Falcon512"),
     Experiment('sign', "Kyber512", "Falcon512", "Falcon512"),
+    Experiment('sign', "Kyber768", "Falcon1024", "Falcon512"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
     #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
@@ -118,7 +121,9 @@ ALGORITHMS = [
     #Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
     #  KEMTLS
     Experiment("kemtls", "Kyber512", "Kyber512", "Falcon512"),
+    Experiment("kemtls", "Kyber768", "Kyber768", "Falcon512"),
     Experiment("pdk", "Kyber512", "Kyber512", "Falcon512"),
+    Experiment("pdk", "Kyber768", "Kyber768", "Falcon512"),
     #Experiment("kemtls", "SikeP434Compressed", "sikeP434Compressed", "Falcon512"),
     #Experiment("pdk", "SikeP434Compressed", "SikeP434Compressed", "Falcon512"),
     #Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
@@ -219,7 +224,14 @@ ALGORITHMS = [
     # Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
     # OPTLS
     *(
-        Experiment("optls", alg, alg, "Falcon512", "Falcon512")
+        Experiment("optls", alg, alg, "Falcon512", "Falcon512", keygen_cache=True)
+        for alg in (
+            "CSIDH2047K221",
+            "CTIDH2047K221",
+        )
+    ),
+    *(
+        Experiment("optls", alg, alg, "Falcon512", "Falcon512", keygen_cache=False)
         for alg in (
             "CSIDH2047K221",
             "CTIDH2047K221",
@@ -232,7 +244,7 @@ def __validate_experiments() -> None:
     nikes: list[str] = [alg.upper() for alg in algorithms.nikes]
     known_kexes: list[str] = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
     known_sigs: list[str] = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
-    for (_, kex, leaf, int, root, client_auth, client_ca) in ALGORITHMS:
+    for (_, kex, leaf, int, root, client_auth, client_ca, _) in ALGORITHMS:
         assert kex in known_kexes, f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
         assert leaf in known_kexes or leaf in known_sigs, f"{leaf} is not a known algorithm"
         assert int is None or int in known_sigs, f"{int} is not a known signature algorithm"
@@ -245,11 +257,11 @@ __validate_experiments()
 def only_unique_experiments() -> None:
     """get unique experiments: one of each type"""
     global ALGORITHMS
-    seen: set[tuple[ExperimentType, bool]] = set()
+    seen: set[tuple[ExperimentType, bool, bool]] = set()
     def update(exp: Experiment) -> Experiment:
-        seen.add((exp.type, exp.client_auth is None))
+        seen.add((exp.type, exp.client_auth is None, exp.keygen_cache))
         return exp
-    ALGORITHMS = [update(exp) for exp in ALGORITHMS if (exp.type, exp.client_auth is None) not in seen]
+    ALGORITHMS = [update(exp) for exp in ALGORITHMS if (exp.type, exp.client_auth is None, exp.keygen_cache) not in seen]
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
@@ -579,7 +591,8 @@ def get_filename(experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate,
         fileprefix += f"_clauth_{experiment.client_auth}_{experiment.client_ca}"
     fileprefix += f"_{rtt_ms}ms"
     caching_type = "int-chain" if not int_only else "int-only"
-    filename = SCRIPTDIR.parent / "data" / f"{experiment.type}-{caching_type}" / f"{fileprefix}_{pkt_loss}_{rate}mbit.{ext}"
+    keygen_cache = "-keycache" if experiment.keygen_cache else ""
+    filename = SCRIPTDIR.parent / "data" / f"{experiment.type}-{caching_type}{keygen_cache}" / f"{fileprefix}_{pkt_loss}_{rate}mbit.{ext}"
     return filename
 
 
@@ -606,6 +619,7 @@ def setup_experiments() -> None:
                 experiment.root or "ERROR",
                 experiment.client_auth or '',
                 experiment.client_ca or '',
+                "true" if experiment.keygen_cache else "",
             ],
             check=True,
             capture_output=False,
@@ -644,16 +658,19 @@ def get_experiment_path(exp: Experiment) -> Path:
     dirname = f"{kex_alg}-{leaf}-{intermediate}-{root}".lower()
     if exp.client_auth is not None:
         dirname += f"-clauth-{exp.client_auth}-{exp.client_ca}".lower()
+    if exp.keygen_cache:
+        dirname += f"-keycache"
     return SCRIPTDIR.parent / Path("bin") / dirname
 
 
 def main():
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=USERID, gid=GROUPID)
-    for (type, caching) in itertools.product(
+    for (type, caching, keycache) in itertools.product(
             ["kemtls", "sign", "sign-cached", "pdk", "optls"],
-            ["int-chain", "int-only"]):
-        dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}"
+            ["int-chain", "int-only"],
+            ["", "-keycache"]):
+        dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}{keycache}"
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)
 
@@ -664,11 +681,13 @@ def main():
         rtt_ms = get_rtt_ms()
 
         for (experiment, int_only, pkt_loss) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES):
+            if "INT_ONLY" in os.environ and not int_only:
+                continue
             if latency_ms == LATENCIES[0]:
                 rate = 1000
             else:
                 rate = 10
-            (type, kex_alg, leaf, intermediate, root, client_auth, client_ca) = experiment
+            (type, kex_alg, leaf, intermediate, root, client_auth, client_ca, keycache) = experiment
             if type in ("pdk", "sign-cached") and not int_only:
                 # Skip PDK variants like KKDD, they don't make sense as the cert isn't sent.
                 continue
@@ -679,7 +698,8 @@ def main():
                 (f"{root} " if not int_only else "") +
                 (f"(client auth: {client_auth} signed by {client_ca}) " if client_auth is not None else "") +
                 f"for {rtt_ms}ms latency with "
-                f"{'intermediate only' if int_only else 'full cert chain'} "
+                f"{'intermediate as CA' if int_only else 'full cert chain'}"
+                f"{', cached ephemerals' if keycache else ''} "
                 f"and {pkt_loss}% loss on {rate}mbit"
             )
 
