@@ -15,7 +15,7 @@ import socket
 import logging
 import datetime
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Tuple, Union, Literal, cast
+from typing import Final, Iterable, List, NamedTuple, Optional, Tuple, Union, Literal, cast
 import sys
 
 ###################################################################################################
@@ -25,30 +25,30 @@ import sys
 # Original set of latencies
 #LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
 #LATENCIES = ["2.0ms"]
-LATENCIES = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
-LOSS_RATES = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
-NUM_PINGS = 10  # for measuring the practical latency
+LATENCIES: Final[list[str]] = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
+LOSS_RATES: Final[list[int]] = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+NUM_PINGS: Final[int] = 10  # for measuring the practical latency
 #SPEEDS = [1000, 10]
-SPEEDS = [1000, 10]
+SPEEDS: Final[list[int]] = [1000, 10]
 
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
-START_PORT = 10000
-POOL_SIZE = 1
-ITERATIONS = 1
+START_PORT: Final[int] = 10000
+POOL_SIZE: Final[int] = 1
+ITERATIONS: Final[int] = 1
 # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
-MEASUREMENTS_PER_ITERATION = 20
-MEASUREMENTS_PER_CLIENT = 20
+MEASUREMENTS_PER_ITERATION: Final[int] = 20
+MEASUREMENTS_PER_CLIENT: Final[int] = 20
 
 ###################################################################################################
 
-ResultType = dict[str, str]
+ResultType= dict[str, str]
 ResultListType = list[ResultType]
 
-SCRIPTDIR = Path(sys.path[0]).resolve()
+SCRIPTDIR: Path = Path(sys.path[0]).resolve()
 sys.path.append(str(SCRIPTDIR.parent.parent / "mk-cert"))
 
-SERVER_PORTS = [str(port) for port in range(START_PORT, START_PORT+POOL_SIZE)]
+SERVER_PORTS: Final[list[str]] = [str(port) for port in range(START_PORT, START_PORT+POOL_SIZE)]
 
 
 import algorithms
@@ -56,9 +56,9 @@ import algorithms
 hostname = "servername"
 
 #: UserID of the user so we don't end up with a bunch of root-owned files
-USERID = int(os.environ.get("SUDO_UID", 1001))
+USERID: int = int(os.environ.get("SUDO_UID", 1001))
 #: Group ID of the user so we don't end up with a bunch of root-owned files
-GROUPID = int(os.environ.get("SUDO_GID", 1001))
+GROUPID: int = int(os.environ.get("SUDO_GID", 1001))
 
 
 class CustomFormatter(logging.Formatter):
@@ -68,14 +68,14 @@ class CustomFormatter(logging.Formatter):
     https://stackoverflow.com/a/56944256/248065
     """
 
-    grey = "\x1b[38;21m"
-    yellow = "\x1b[33;21m"
-    red = "\x1b[31;21m"
-    bold_red = "\x1b[31;1m"
-    reset = "\x1b[0m"
-    format_tpl = "%(asctime)s - %(levelname)-8s - %(message)-50s (%(filename)s:%(lineno)d)"
+    grey: Final[str] = "\x1b[38;21m"
+    yellow: Final[str] = "\x1b[33;21m"
+    red: Final[str] = "\x1b[31;21m"
+    bold_red: Final[str] = "\x1b[31;1m"
+    reset: Final[str] = "\x1b[0m"
+    format_tpl: Final[str] = "%(asctime)s - %(levelname)-8s - %(message)-50s (%(filename)s:%(lineno)d)"
 
-    FORMATS = {
+    FORMATS: Final[dict[int, str]] = {
         logging.DEBUG: grey + format_tpl + reset,
         logging.INFO: grey + format_tpl + reset,
         logging.WARNING: yellow + format_tpl + reset,
@@ -83,7 +83,7 @@ class CustomFormatter(logging.Formatter):
         logging.CRITICAL: bold_red + format_tpl + reset
     }
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
@@ -102,126 +102,76 @@ class Experiment(NamedTuple):
     keygen_cache: bool = False
 
 
-ALGORITHMS = [
+FRODOS = [
+    f"FrodoKem{size.title()}{alg.title()}"
+    for size in ("640", "976", "1344")
+    for alg in ("aes", "shake")
+]
+KYBERS = ["Kyber512", "Kyber768", "Kyber1024"]
+BIKES = ["BikeL1", "BikeL3"]  # NOTE: IND-CPA!
+HQCS = ["Hqc128", "Hqc192", "Hqc256"]
+MCELIECES = [
+    f"ClassicMcEliece{size}{variant}"
+    for size in ("348864", "460896", "6688128", "6960119", "8192128")
+    for variant in ["", "f"]
+]
+DILITHIUMS = ["Dilithium2", "Dilithium3", "Dilithium5"]
+FALCONS = ["Falcon512", "Falcon1024"]
+SPHINCSES = [
+    f"SphincsShake{size}{var}Simple"
+    for size in [128, 192, 256]
+    for var in ["s", "f"]
+]
+
+
+KEMS: list[str] = [*KYBERS, *HQCS, *[frodo for frodo in FRODOS if "640" in frodo], *BIKES]
+SIGS: list[str] = [*DILITHIUMS, *FALCONS, *SPHINCSES]
+
+ALGORITHMS: list[Experiment] = [
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT - CLIENT AUTH - CLIENT CA
-    #Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048'),
-    #Experiment('sign', 'X25519', 'RSA2048', 'RSA2048', 'RSA2048', "RSA2048", "RSA2048"),
+    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
-    Experiment('sign', "Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
-    Experiment('sign', "Kyber512", "Dilithium2", "Falcon512"),
-    Experiment('sign', "Kyber512", "Falcon512", "Falcon512"),
-    Experiment('sign', "Kyber768", "Falcon1024", "Falcon512"),
-    #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "Gemss128"),
-    #Experiment('sign', "SikeP434Compressed", "Falcon512", "Gemss128", "Gemss128"),
-    #Experiment('sign', "SikeP434Compressed", "Falcon512", "XMSS", "RainbowICircumzenithal"),
-    #Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    #Experiment('sign', "SikeP434Compressed", "Falcon512", "RainbowIClassic", "RainbowIClassic"),
-    #Experiment('sign', "NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
-    #  KEMTLS
-    Experiment("kemtls", "Kyber512", "Kyber512", "Falcon512"),
-    Experiment("kemtls", "Kyber768", "Kyber768", "Falcon512"),
-    Experiment("pdk", "Kyber512", "Kyber512", "Falcon512"),
-    Experiment("pdk", "Kyber768", "Kyber768", "Falcon512"),
-    #Experiment("kemtls", "SikeP434Compressed", "sikeP434Compressed", "Falcon512"),
-    #Experiment("pdk", "SikeP434Compressed", "SikeP434Compressed", "Falcon512"),
-    #Experiment('kemtls', "Kyber512", "Kyber512", "Dilithium2", "Dilithium2"),
-    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "Gemss128"),
-    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "Gemss128", "Gemss128"),
-    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowICircumzenithal"),
-    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowICircumzenithal", "RainbowICircumzenithal"),
-    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic"),
-    #Experiment('kemtls', "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic"),
-    #Experiment('kemtls', "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512"),
-    #   KEMTLS + CA
-    #Experiment("kemtls", "Kyber512", "Kyber512", "Dilithium2", "Dilithium2", "Kyber512", "Dilithium2"),
-    #Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "XMSS", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
-    #Experiment("kemtls", "NtruHps2048509", "NtruHps2048509", "Falcon512", "Falcon512", "NtruHps2048509", "Falcon512"),
-    #Experiment("kemtls", "SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic", "RainbowIClassic", "SikeP434Compressed", "RainbowIClassic"),
-    # KEMTLS PDK experiments
-    #  TLS with cached certs
-    #Experiment("sign-cached", "X25519", "RSA2048", "RSA2048"),
-    #Experiment("sign-cached", "X25519", "RSA2048", "RSA2048", client_auth="RSA2048", client_ca="RSA2048"),
-    # *(
-    #     Experiment("sign-cached", kex, sig)
-    #     for kex, sig in [
-    #         ("Kyber512", "Dilithium2"),
-    #         #("Lightsaber", "Dilithium2"),
-    #         ("NtruHps2048509", "Falcon512"),
-    #         #("Kyber512", "RainbowIClassic"),
-    #         # Minimal Finalist
-    #         #("NtruHps2048509", "RainbowIClassic"),
-    #         # Minimal
-    #         ("SikeP434Compressed", "RainbowIClassic"),
-    #     ]
-    # ),
+    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMS for sig in SIGS),
+    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMS for sig in SIGS),
     #  TLS with cached certs + client auth
-    # *(
-    #     Experiment("sign-cached", kex, sig, client_auth=clauth, client_ca=clca)
-    #     for kex, sig, clauth, clca in [
-    #         ("Kyber512", "Dilithium2", "Dilithium2", "Dilithium2"),
-    #         #("Lightsaber", "Dilithium2", "Dilithium2", "Dilithium2"),
-    #         ("NtruHps2048509", "Falcon512", "Falcon512", "Falcon512"),
-    #         # Minimal Finalist
-    #         #("NtruHps2048509", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
-    #         # Minimal
-    #         ("SikeP434Compressed", "RainbowIClassic", "Falcon512", "RainbowIClassic"),
-    #     ]
-    # ),
+    *(
+        Experiment("sign-cached", kex, sig, client_auth=sig, client_ca=sig)
+        for kex in [*KEMS]
+        for sig in SIGS
+    ),
     #  PDK
     #   Level 1
-    # *(
-    #     Experiment("pdk", kex, kex)
-    #     for kex in [
-    #         "Kyber512",
-    #         "Lightsaber",
-    #         "NtruHps2048509",
-    #         #"ClassicMcEliece348864",
-    #         #"Hqc128",
-    #         #"NtruPrimeNtrulpr653",
-    #         #"NtruPrimeSntrup653",
-    #         #"BikeL1Fo",
-    #         #"FrodoKem640Shake",
-
-    #         #"SikeP434",
-    #         # Minimal
-    #         "SikeP434Compressed",
-    #     ]
-    # ),
+    *(
+        Experiment("pdk", kex, kex)
+        for kex in [
+            *KEMS,
+        ]
+    ),
     #    With mutual auth
-    # *(
-    #     Experiment("pdk", kex, kex, client_auth=clauth, client_ca=clca)
-    #     for kex, clauth, clca in [
-    #         ("Kyber512", "Kyber512", "Dilithium2"),
-    #         ("Lightsaber", "Lightsaber", "Dilithium2"),
-    #         ("NtruHps2048509", "NtruHps2048509", "Falcon512"),
-    #         #("Hqc128", "Hqc128", "RainbowIClassic"),
-    #         #("NtruPrimeNtrulpr653", "NtruPrimeNtrulpr653", "Falcon512"),
-    #         #("NtruPrimeSntrup653", "NtruPrimeSntrup653", "Falcon512"),
-    #         #("BikeL1Fo", "BikeL1Fo", "RainbowIClassic"),
-    #         #("FrodoKem640Shake", "FrodoKem640Shake", "SphincsSha256128sSimple"),
-    #         #("SikeP434", "SikeP434", "RainbowIClassic"),
-    #         # Minimal Finalist
-    #         #("NtruHps2048509", "NtruHps2048509", "RainbowIClassic"),
-    #         # Minimal
-    #         ("SikeP434Compressed", "SikeP434Compressed", "RainbowIClassic"),
-    #     ]
-    # ),
+    *(
+        Experiment("pdk", kex, kex, client_auth=kex, client_ca=sig)
+        for kex in KEMS
+        for sig in SIGS
+    ),
     #   Special combos with McEliece
-    # *(
-    #     Experiment("pdk", kex, leaf="ClassicMcEliece348864")
-    #     for kex in [
-    #         #"Kyber512",
-    #         #"Lightsaber",
-    #         # Minimal Finalist
-    #         #"NtruHps2048509",
-    #         # Minimal
-    #         "SikeP434Compressed",
-    #     ]
-    # ),
+    *(
+        Experiment("pdk", kex, leaf=mceliece)
+        for kex in [
+            *KEMS,
+        ]
+        for mceliece in MCELIECES
+    ),
     # McEliece + Mutual
-    # Experiment("pdk", "SikeP434Compressed", "ClassicMcEliece348864", client_auth="SikeP434Compressed", client_ca="RainbowIClassic"),
+    *(
+        Experiment("pdk", kex, mceliece, client_auth=kex, client_ca=sig)
+        for kex in KEMS
+        for sig in SIGS
+        for mceliece in MCELIECES
+    ),
     # OPTLS
     *(
         Experiment("optls", alg, alg, "Falcon512", "Falcon512", keygen_cache=True)
@@ -266,7 +216,7 @@ def only_unique_experiments() -> None:
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
 
-def run_subprocess(command, working_dir=".", expected_returncode=0) -> str:
+def run_subprocess(command: subprocess._CMD, working_dir: str = ".", expected_returncode: int = 0) -> str:
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,
@@ -279,7 +229,7 @@ def run_subprocess(command, working_dir=".", expected_returncode=0) -> str:
     return result.stdout
 
 
-def change_qdisc(ns, dev, pkt_loss, delay, rate=1000) -> None:
+def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> None:
     if pkt_loss == 0:
         command: list[str] = [
             "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
@@ -723,35 +673,35 @@ def main():
 
 
 if __name__ == "__main__":
-    level = getattr(logging, os.environ.get("DEBUG", "INFO"))
+    level: int = getattr(logging, os.environ.get("DEBUG", "INFO"))
     logger = logging.getLogger("BENCHMARKER")
     logger.setLevel(level)
 
     # create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(level)
-
     ch.setFormatter(CustomFormatter())
 
     logger.addHandler(ch)
 
+    algs = ALGORITHMS
     if (type := os.environ.get("EXPERIMENT")) is not None:
-        ALGORITHMS = filter(lambda x: x.type == type, ALGORITHMS)
+        algs = filter(lambda x: x.type == type, ALGORITHMS)
     if (kex := os.environ.get("KEX")) is not None:
-        ALGORITHMS = filter(lambda x: x.kex == kex, ALGORITHMS)
+        algs = filter(lambda x: x.kex == kex, ALGORITHMS)
     if (leaf := os.environ.get("LEAF")) is not None:
-        ALGORITHMS = filter(lambda x: x.leaf == leaf, ALGORITHMS)
+        algs = filter(lambda x: x.leaf == leaf, ALGORITHMS)
     if (intermediate := os.environ.get("INT")) is not None:
-        ALGORITHMS = filter(lambda x: x.intermediate == intermediate, ALGORITHMS)
+        algs = filter(lambda x: x.intermediate == intermediate, ALGORITHMS)
     if (root := os.environ.get("ROOT")) is not None:
-        ALGORITHMS = filter(lambda x: x.root == root, ALGORITHMS)
+        algs = filter(lambda x: x.root == root, ALGORITHMS)
     if "NO_CLIENT_AUTH" in os.environ:
-        ALGORITHMS = filter(lambda x: x.client_auth is None, ALGORITHMS)
+        algs = filter(lambda x: x.client_auth is None, ALGORITHMS)
     elif (client_auth := os.environ.get("CLIENT_AUTH")) is not None:
-        ALGORITHMS = filter(lambda x: x.client_auth == client_auth, ALGORITHMS)
+        algs = filter(lambda x: x.client_auth == client_auth, ALGORITHMS)
     if (client_ca := os.environ.get("CLIENT_CA")) is not None:
-        ALGORITHMS = filter(lambda x: x.client_ca == client_ca, ALGORITHMS)
-    ALGORITHMS = list(ALGORITHMS)
+        algs = filter(lambda x: x.client_ca == client_ca, ALGORITHMS)
+    ALGORITHMS = list(algs)
 
     if len(sys.argv) < 2 or sys.argv[1] != "full":
         logger.warning("Running only one experiment of each type")
