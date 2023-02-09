@@ -1,17 +1,17 @@
 [submodule "webpki"]
 	path = webpki
 	url = https://github.com/thomwiggers/webpki.git
-	branch = pq-take2
+	branch = optls
 [submodule "mk-cert"]
 	path = mk-cert
 	url = https://github.com/thomwiggers/mk-cert
 [submodule "rustls"]
 	path = rustls
 	url = https://github.com/thomwiggers/rustls.git
-	branch = pqtls-take2
+	branch = secsidh-nike
 [submodule "ring"]
 	path = ring
 	url = https://github.com/thomwiggers/ring.git
 [submodule "oqs-rs"]
 	path = oqs-rs
-	url = https://github.com/thomwiggers/oqs-rs.git
+	url = https://github.com/thomwiggers/liboqs-rust.git
