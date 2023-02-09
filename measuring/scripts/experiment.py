@@ -15,7 +15,17 @@ import socket
 import logging
 import datetime
 from pathlib import Path
-from typing import Final, Iterable, List, NamedTuple, Optional, Tuple, Union, Literal, cast
+from typing import (
+    Final,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    Literal,
+    cast,
+)
 import sys
 
 ###################################################################################################
@@ -23,12 +33,17 @@ import sys
 ###################################################################################################
 
 # Original set of latencies
-#LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
-#LATENCIES = ["2.0ms"]
-LATENCIES: Final[list[str]] = ['15.458ms', '97.73ms'] #['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
-LOSS_RATES: Final[list[int]] = [0]     #[ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
+# LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
+# LATENCIES = ["2.0ms"]
+LATENCIES: Final[list[str]] = [
+    "15.458ms",
+    "97.73ms",
+]  # ['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
+LOSS_RATES: Final[list[int]] = [
+    0
+]  # [ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
 NUM_PINGS: Final[int] = 10  # for measuring the practical latency
-#SPEEDS = [1000, 10]
+# SPEEDS = [1000, 10]
 SPEEDS: Final[list[int]] = [1000, 10]
 
 # xvzcf's experiment used POOL_SIZE = 40
@@ -42,13 +57,15 @@ MEASUREMENTS_PER_CLIENT: Final[int] = 20
 
 ###################################################################################################
 
-ResultType= dict[str, str]
+ResultType = dict[str, str]
 ResultListType = list[ResultType]
 
 SCRIPTDIR: Path = Path(sys.path[0]).resolve()
 sys.path.append(str(SCRIPTDIR.parent.parent / "mk-cert"))
 
-SERVER_PORTS: Final[list[str]] = [str(port) for port in range(START_PORT, START_PORT+POOL_SIZE)]
+SERVER_PORTS: Final[list[str]] = [
+    str(port) for port in range(START_PORT, START_PORT + POOL_SIZE)
+]
 
 
 import algorithms
@@ -73,14 +90,16 @@ class CustomFormatter(logging.Formatter):
     red: Final[str] = "\x1b[31;21m"
     bold_red: Final[str] = "\x1b[31;1m"
     reset: Final[str] = "\x1b[0m"
-    format_tpl: Final[str] = "%(asctime)s - %(levelname)-8s - %(message)-50s (%(filename)s:%(lineno)d)"
+    format_tpl: Final[
+        str
+    ] = "%(asctime)s - %(levelname)-8s - %(message)-50s (%(filename)s:%(lineno)d)"
 
     FORMATS: Final[dict[int, str]] = {
         logging.DEBUG: grey + format_tpl + reset,
         logging.INFO: grey + format_tpl + reset,
         logging.WARNING: yellow + format_tpl + reset,
         logging.ERROR: red + format_tpl + reset,
-        logging.CRITICAL: bold_red + format_tpl + reset
+        logging.CRITICAL: bold_red + format_tpl + reset,
     }
 
     def format(self, record: logging.LogRecord) -> str:
@@ -88,10 +107,19 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
-ExperimentType = Union[Literal["sign"], Literal["pdk"], Literal["kemtls"], Literal["sign-cached"], Literal["optls"]]
+
+ExperimentType = Union[
+    Literal["sign"],
+    Literal["pdk"],
+    Literal["kemtls"],
+    Literal["sign-cached"],
+    Literal["optls"],
+]
+
 
 class Experiment(NamedTuple):
     """Represents an experiment"""
+
     type: ExperimentType
     kex: str
     leaf: str
@@ -118,13 +146,16 @@ MCELIECES = [
 DILITHIUMS = ["Dilithium2", "Dilithium3", "Dilithium5"]
 FALCONS = ["Falcon512", "Falcon1024"]
 SPHINCSES = [
-    f"SphincsShake{size}{var}Simple"
-    for size in [128, 192, 256]
-    for var in ["s", "f"]
+    f"SphincsShake{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
 ]
 
 
-KEMS: list[str] = [*KYBERS, *HQCS, *[frodo for frodo in FRODOS if "640" in frodo], *BIKES]
+KEMS: list[str] = [
+    *KYBERS,
+    *HQCS,
+    *[frodo for frodo in FRODOS if "640" in frodo],
+    *BIKES,
+]
 SIGS: list[str] = [*DILITHIUMS, *FALCONS, *SPHINCSES]
 
 ALGORITHMS: list[Experiment] = [
@@ -195,28 +226,53 @@ def __validate_experiments() -> None:
     known_kexes: list[str] = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
     known_sigs: list[str] = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
     for (_, kex, leaf, int, root, client_auth, client_ca, _) in ALGORITHMS:
-        assert kex in known_kexes, f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
-        assert leaf in known_kexes or leaf in known_sigs, f"{leaf} is not a known algorithm"
-        assert int is None or int in known_sigs, f"{int} is not a known signature algorithm"
-        assert root is None or root in known_sigs, f"{root} is not a known signature algorithm"
-        assert client_auth is None or client_auth in known_sigs or client_auth in known_kexes, \
-            f"{client_auth} is not a known signature algorith or KEM"
-        assert client_ca is None or client_ca in known_sigs, f"{client_ca} is not a known sigalg"
+        assert (
+            kex in known_kexes
+        ), f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
+        assert (
+            leaf in known_kexes or leaf in known_sigs
+        ), f"{leaf} is not a known algorithm"
+        assert (
+            int is None or int in known_sigs
+        ), f"{int} is not a known signature algorithm"
+        assert (
+            root is None or root in known_sigs
+        ), f"{root} is not a known signature algorithm"
+        assert (
+            client_auth is None
+            or client_auth in known_sigs
+            or client_auth in known_kexes
+        ), f"{client_auth} is not a known signature algorith or KEM"
+        assert (
+            client_ca is None or client_ca in known_sigs
+        ), f"{client_ca} is not a known sigalg"
+
+
 __validate_experiments()
+
 
 def only_unique_experiments() -> None:
     """get unique experiments: one of each type"""
     global ALGORITHMS
     seen: set[tuple[ExperimentType, bool, bool]] = set()
+
     def update(exp: Experiment) -> Experiment:
         seen.add((exp.type, exp.client_auth is None, exp.keygen_cache))
         return exp
-    ALGORITHMS = [update(exp) for exp in ALGORITHMS if (exp.type, exp.client_auth is None, exp.keygen_cache) not in seen]
+
+    ALGORITHMS = [
+        update(exp)
+        for exp in ALGORITHMS
+        if (exp.type, exp.client_auth is None, exp.keygen_cache) not in seen
+    ]
+
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
 
-def run_subprocess(command: subprocess._CMD, working_dir: str = ".", expected_returncode: int = 0) -> str:
+def run_subprocess(
+    command: subprocess._CMD, working_dir: str = ".", expected_returncode: int = 0
+) -> str:
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,
@@ -225,22 +281,54 @@ def run_subprocess(command: subprocess._CMD, working_dir: str = ".", expected_re
         text=True,
         check=False,
     )
-    assert result.returncode == expected_returncode, f"Failed to run '{command}':\n{result.stdout}"
+    assert (
+        result.returncode == expected_returncode
+    ), f"Failed to run '{command}':\n{result.stdout}"
     return result.stdout
 
 
 def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> None:
     if pkt_loss == 0:
         command: list[str] = [
-            "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
-            "root", "netem", "limit", "1000", "delay", delay,
-            "rate", f"{rate}mbit",
+            "ip",
+            "netns",
+            "exec",
+            ns,
+            "tc",
+            "qdisc",
+            "change",
+            "dev",
+            dev,
+            "root",
+            "netem",
+            "limit",
+            "1000",
+            "delay",
+            delay,
+            "rate",
+            f"{rate}mbit",
         ]
     else:
         command: list[str] = [
-            "ip", "netns", "exec", ns, "tc", "qdisc", "change", "dev", dev,
-            "root", "netem", "limit", "1000", "loss", "{0}%".format(pkt_loss),
-            "delay", delay, "rate", f"{rate}mbit",
+            "ip",
+            "netns",
+            "exec",
+            ns,
+            "tc",
+            "qdisc",
+            "change",
+            "dev",
+            dev,
+            "root",
+            "netem",
+            "limit",
+            "1000",
+            "loss",
+            "{0}%".format(pkt_loss),
+            "delay",
+            delay,
+            "rate",
+            f"{rate}mbit",
         ]
 
     logger.debug(" > " + " ".join(command))
@@ -248,7 +336,9 @@ def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> Non
 
 
 class ServerProcess(multiprocessing.Process):
-    def __init__(self, port: int, pipe: Connection, experiment: Experiment, cached_int=False):
+    def __init__(
+        self, port: int, pipe: Connection, experiment: Experiment, cached_int=False
+    ):
         super().__init__(daemon=False)
         self.experiment = experiment
         self.path = get_experiment_path(experiment)
@@ -276,15 +366,21 @@ class ServerProcess(multiprocessing.Process):
 
     def run(self):
         cmd: list[str] = [
-            "ip", "netns", "exec", "srv_ns",
+            "ip",
+            "netns",
+            "exec",
+            "srv_ns",
             f"./{self.servername}",
-            "--certs", self.certname,
-            "--key", self.keyname,
-            "--port", self.port,
+            "--certs",
+            self.certname,
+            "--key",
+            self.keyname,
+            "--port",
+            self.port,
             *self.extra_opts,
             "http",
         ]
-        logger.debug("Server cmd: %s", ' '.join(cmd))
+        logger.debug("Server cmd: %s", " ".join(cmd))
         self.server_process = subprocess.Popen(
             cmd,
             cwd=self.path,
@@ -312,27 +408,35 @@ class ServerProcess(multiprocessing.Process):
             if result is not None:
                 label = result.group("label")
                 if label in measurements:
-                    logger.error("We're adding the same label '%s' twice to the same measurement", label)
+                    logger.error(
+                        "We're adding the same label '%s' twice to the same measurement",
+                        label,
+                    )
                     logger.error("measurements=%r", measurements)
                     # XXX: this kills the measuring
                     if label == "RECEIVED CLIENT HELLO":
                         logger.warning("Resetting measurement")
                         measurements = {}
                     else:
-                        raise ValueError(f"label '{label}' already exisited in measurement")
+                        raise ValueError(
+                            f"label '{label}' already exisited in measurement"
+                        )
                 measurements[label] = result.group("timing")
                 if label == self.last_msg:
                     if connections % (MEASUREMENTS_PER_CLIENT + 1) != 0:
                         collected_measurements.append(measurements)
                     else:
-                        logger.debug("skipping warmup measurement data on connection %d", connections)
+                        logger.debug(
+                            "skipping warmup measurement data on connection %d",
+                            connections,
+                        )
                     connections += 1
                     measurements = {}
             else:
                 logger.warn("Line '%s' did not match regex", line)
 
         logger.debug("[server] Sending data through pipe")
-        self.pipe.send((' '.join(cmd), collected_measurements))
+        self.pipe.send((" ".join(cmd), collected_measurements))
         time.sleep(1)
 
         logger.debug("Terminating server")
@@ -340,12 +444,21 @@ class ServerProcess(multiprocessing.Process):
         try:
             self.server_process.wait(5)
         except subprocess.TimeoutExpired:
-            logger.exception("Timeout expired while waiting for server on {port} to terminate")
+            logger.exception(
+                "Timeout expired while waiting for server on {port} to terminate"
+            )
             self.server_process.kill()
+
 
 ExperimentOutput = tuple[str, str, list[tuple[ResultType, ResultType]]]
 
-def run_measurement(output_queue: "multiprocessing.Queue[ExperimentOutput]", port, experiment: Experiment, cached_int):
+
+def run_measurement(
+    output_queue: "multiprocessing.Queue[ExperimentOutput]",
+    port,
+    experiment: Experiment,
+    cached_int,
+):
     (inpipe, outpipe) = multiprocessing.Pipe()
     server = ServerProcess(port, inpipe, experiment, cached_int)
     server.start()
@@ -378,33 +491,52 @@ def run_measurement(output_queue: "multiprocessing.Queue[ExperimentOutput]", por
             cache_args = ["--cached-certs", "signing.chain.crt"]
     clientauthopts: list[str] = []
     if experiment.client_auth is not None:
-        clientauthopts: list[str] = ["--auth-certs", "client.crt", "--auth-key", "client.key"]
+        clientauthopts: list[str] = [
+            "--auth-certs",
+            "client.crt",
+            "--auth-key",
+            "client.key",
+        ]
     cmd: List[str] = []
     expected_measurement_time: int = 200 if experiment.type == "optls" else 10
-    while len(client_measurements) < MEASUREMENTS_PER_ITERATION and server.is_alive() and restarts < allowed_restarts:
+    while (
+        len(client_measurements) < MEASUREMENTS_PER_ITERATION
+        and server.is_alive()
+        and restarts < allowed_restarts
+    ):
         process_measurements: list[ResultType] = []
         logger.debug(f"Starting measurements on port {port}")
         cmd = [
-            "ip", "netns", "exec", "cli_ns",
+            "ip",
+            "netns",
+            "exec",
+            "cli_ns",
             f"./{clientname}",
-            "--cafile", caname,
+            "--cafile",
+            caname,
             "--loops",
-            str(min(MEASUREMENTS_PER_ITERATION - len(client_measurements),
-                    MEASUREMENTS_PER_CLIENT) + 1),
-            "--port", port,
+            str(
+                min(
+                    MEASUREMENTS_PER_ITERATION - len(client_measurements),
+                    MEASUREMENTS_PER_CLIENT,
+                )
+                + 1
+            ),
+            "--port",
+            port,
             "--no-tickets",
             "--http",
             *cache_args,
             *clientauthopts,
             hostname,
         ]
-        logger.debug("Client cmd: %s", ' '.join(cmd))
+        logger.debug("Client cmd: %s", " ".join(cmd))
         try:
             proc_result = subprocess.run(
                 cmd,
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=expected_measurement_time * MEASUREMENTS_PER_CLIENT+1,
+                timeout=expected_measurement_time * MEASUREMENTS_PER_CLIENT + 1,
                 check=False,
                 cwd=path,
             )
@@ -422,7 +554,7 @@ def run_measurement(output_queue: "multiprocessing.Queue[ExperimentOutput]", por
         logger.debug(f"Completed measurements on port {port}")
         measurement: ResultType = {}
         for line in proc_result.stdout.split("\n"):
-            assert 'WebPKIError' not in line
+            assert "WebPKIError" not in line
             result = TIMER_REGEX.match(line)
             if result:
                 label: str = result.group("label")
@@ -438,17 +570,23 @@ def run_measurement(output_queue: "multiprocessing.Queue[ExperimentOutput]", por
     logger.debug("Joining server")
     server.join(5)
 
-
     if not outpipe.poll(10):
         logger.error("No data available from server")
         sys.exit(1)
     (server_cmd, server_data) = cast(tuple[str, ResultListType], outpipe.recv())
     if len(server_data) != len(client_measurements):
-        logger.error(f"Process on {port} out of sync {len(server_data)} != {len(client_measurements)}")
+        logger.error(
+            f"Process on {port} out of sync {len(server_data)} != {len(client_measurements)}"
+        )
         sys.exit(1)
 
-    output: ExperimentOutput = (' '.join(cmd), server_cmd, list(zip(server_data, client_measurements)))
+    output: ExperimentOutput = (
+        " ".join(cmd),
+        server_cmd,
+        list(zip(server_data, client_measurements)),
+    )
     output_queue.put(output)
+
 
 def experiment_run_timers(experiment: Experiment, cached_int: bool) -> ExperimentOutput:
     path = get_experiment_path(experiment)
@@ -472,7 +610,11 @@ def experiment_run_timers(experiment: Experiment, cached_int: bool) -> Experimen
     for process in processes:
         process.join(5)
 
-    flattened: Tuple[str, str, List[Tuple[ResultType, ResultType]]]= (results[0][0], results[0][1], [])
+    flattened: Tuple[str, str, List[Tuple[ResultType, ResultType]]] = (
+        results[0][0],
+        results[0][1],
+        [],
+    )
     for _, _, measurements in results:
         flattened[2].extend(measurements)
 
@@ -499,7 +641,9 @@ def get_rtt_ms():
     return result_fmt[4]
 
 
-def write_result(outfile: io.TextIOBase, outlog: io.TextIOBase, results: list[ExperimentOutput]):
+def write_result(
+    outfile: io.TextIOBase, outlog: io.TextIOBase, results: list[ExperimentOutput]
+):
     client_cmd = results[0][0]
     server_cmd = results[0][1]
     server_keys = results[0][2][0][0].keys()
@@ -524,16 +668,19 @@ def write_result(outfile: io.TextIOBase, outlog: io.TextIOBase, results: list[Ex
     outlog.write(f"server: {server_cmd}\n")
 
 
-
 def reverse_resolve_hostname() -> str:
     try:
         return socket.gethostbyaddr("10.99.0.1")[0]
     except:
-        logger.exception("You probably need to set up '10.99.0.1' in servername in /etc/hosts")
+        logger.exception(
+            "You probably need to set up '10.99.0.1' in servername in /etc/hosts"
+        )
         raise
 
 
-def get_filename(experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate, ext="csv") -> Path:
+def get_filename(
+    experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate, ext="csv"
+) -> Path:
     fileprefix = f"{experiment.kex}_{experiment.leaf}_{experiment.intermediate}"
     if not int_only:
         fileprefix += f"_{experiment.root}"
@@ -542,15 +689,19 @@ def get_filename(experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate,
     fileprefix += f"_{rtt_ms}ms"
     caching_type = "int-chain" if not int_only else "int-only"
     keygen_cache = "-keycache" if experiment.keygen_cache else ""
-    filename = SCRIPTDIR.parent / "data" / f"{experiment.type}-{caching_type}{keygen_cache}" / f"{fileprefix}_{pkt_loss}_{rate}mbit.{ext}"
+    filename = (
+        SCRIPTDIR.parent
+        / "data"
+        / f"{experiment.type}-{caching_type}{keygen_cache}"
+        / f"{fileprefix}_{pkt_loss}_{rate}mbit.{ext}"
+    )
     return filename
 
 
 def setup_experiments() -> None:
     # get unique combinations
     combinations = set(
-        get_experiment_instantiation(experiment)
-        for experiment in ALGORITHMS
+        get_experiment_instantiation(experiment) for experiment in ALGORITHMS
     )
 
     for experiment in combinations:
@@ -567,8 +718,8 @@ def setup_experiments() -> None:
                 experiment.leaf,
                 experiment.intermediate or "ERROR",
                 experiment.root or "ERROR",
-                experiment.client_auth or '',
-                experiment.client_ca or '',
+                experiment.client_auth or "",
+                experiment.client_ca or "",
                 "true" if experiment.keygen_cache else "",
             ],
             check=True,
@@ -580,7 +731,12 @@ def get_experiment_instantiation(experiment: Experiment) -> Experiment:
     # intermediate and root might be None, which means we'll need to match
     no_client_auth = experiment.client_auth is None
     for combo in ALGORITHMS:
-        if all(map(lambda ab: ab[1] is None or ab[0] == ab[1], zip(combo[1:], experiment[1:]))):
+        if all(
+            map(
+                lambda ab: ab[1] is None or ab[0] == ab[1],
+                zip(combo[1:], experiment[1:]),
+            )
+        ):
             for (field, b) in experiment._asdict().items():
                 if b is not None:
                     experiment._replace(**{field: getattr(combo, field)})
@@ -588,7 +744,7 @@ def get_experiment_instantiation(experiment: Experiment) -> Experiment:
 
     experiment = experiment._replace(
         intermediate=experiment.intermediate or "Dilithium2",
-        root=experiment.root or "Dilithium2"
+        root=experiment.root or "Dilithium2",
     )
 
     if no_client_auth:
@@ -617,9 +773,10 @@ def main():
     os.makedirs("data", exist_ok=True)
     os.chown("data", uid=USERID, gid=GROUPID)
     for (type, caching, keycache) in itertools.product(
-            ["kemtls", "sign", "sign-cached", "pdk", "optls"],
-            ["int-chain", "int-only"],
-            ["", "-keycache"]):
+        ["kemtls", "sign", "sign-cached", "pdk", "optls"],
+        ["int-chain", "int-only"],
+        ["", "-keycache"],
+    ):
         dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}{keycache}"
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)
@@ -630,24 +787,39 @@ def main():
         change_qdisc("srv_ns", "srv_ve", 0, delay=latency_ms)
         rtt_ms = get_rtt_ms()
 
-        for (experiment, int_only, pkt_loss) in itertools.product(ALGORITHMS, [True, False], LOSS_RATES):
+        for (experiment, int_only, pkt_loss) in itertools.product(
+            ALGORITHMS, [True, False], LOSS_RATES
+        ):
             if "INT_ONLY" in os.environ and not int_only:
                 continue
             if latency_ms == LATENCIES[0]:
                 rate = 1000
             else:
                 rate = 10
-            (type, kex_alg, leaf, intermediate, root, client_auth, client_ca, keycache) = experiment
+            (
+                type,
+                kex_alg,
+                leaf,
+                intermediate,
+                root,
+                client_auth,
+                client_ca,
+                keycache,
+            ) = experiment
             if type in ("pdk", "sign-cached") and not int_only:
                 # Skip PDK variants like KKDD, they don't make sense as the cert isn't sent.
                 continue
             experiment = get_experiment_instantiation(experiment)
             logger.info(
-                f"Experiment for {type} {kex_alg} {leaf} " +
-                (f"{intermediate} " if intermediate is not None else "") +
-                (f"{root} " if not int_only else "") +
-                (f"(client auth: {client_auth} signed by {client_ca}) " if client_auth is not None else "") +
-                f"for {rtt_ms}ms latency with "
+                f"Experiment for {type} {kex_alg} {leaf} "
+                + (f"{intermediate} " if intermediate is not None else "")
+                + (f"{root} " if not int_only else "")
+                + (
+                    f"(client auth: {client_auth} signed by {client_ca}) "
+                    if client_auth is not None
+                    else ""
+                )
+                + f"for {rtt_ms}ms latency with "
                 f"{'intermediate as CA' if int_only else 'full cert chain'}"
                 f"{', cached ephemerals' if keycache else ''} "
                 f"and {pkt_loss}% loss on {rate}mbit"
@@ -656,8 +828,13 @@ def main():
             change_qdisc("cli_ns", "cli_ve", pkt_loss, delay=latency_ms, rate=rate)
             change_qdisc("srv_ns", "srv_ve", pkt_loss, delay=latency_ms, rate=rate)
             result: list[ExperimentOutput] = []
-            fngetter = partial(get_filename,
-                experiment, int_only, rtt_ms, pkt_loss, rate,
+            fngetter = partial(
+                get_filename,
+                experiment,
+                int_only,
+                rtt_ms,
+                pkt_loss,
+                rate,
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
@@ -666,7 +843,9 @@ def main():
             num_results = sum(len(r[2]) for r in result)
             logger.info("took %s to collect %d results", duration, num_results)
 
-            with open(fngetter("csv"), "w+") as outresult, open(fngetter("cmdline"), "w+") as outlog:
+            with open(fngetter("csv"), "w+") as outresult, open(
+                fngetter("cmdline"), "w+"
+            ) as outlog:
                 write_result(outresult, outlog, result)
             os.chown(fngetter("csv"), uid=USERID, gid=GROUPID)
             os.chown(fngetter("cmdline"), uid=USERID, gid=GROUPID)
@@ -707,11 +886,27 @@ if __name__ == "__main__":
         logger.warning("Running only one experiment of each type")
         only_unique_experiments()
 
-    logger.info("Sign experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign")))
-    logger.info("KEMTLS experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "kemtls")))
-    logger.info("PDK experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "pdk")))
-    logger.info("OPTLS experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "optls")))
-    logger.info("Sign-cached experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign-cached")))
+    logger.info(
+        "Sign experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "sign"))
+    )
+    logger.info(
+        "KEMTLS experiments: {}".format(
+            sum(1 for alg in ALGORITHMS if alg[0] == "kemtls")
+        )
+    )
+    logger.info(
+        "PDK experiments: {}".format(sum(1 for alg in ALGORITHMS if alg[0] == "pdk"))
+    )
+    logger.info(
+        "OPTLS experiments: {}".format(
+            sum(1 for alg in ALGORITHMS if alg[0] == "optls")
+        )
+    )
+    logger.info(
+        "Sign-cached experiments: {}".format(
+            sum(1 for alg in ALGORITHMS if alg[0] == "sign-cached")
+        )
+    )
 
     setup_experiments()
     hostname = reverse_resolve_hostname()
