@@ -24,7 +24,9 @@ import sys
 
 import logging
 
-if len(sys.argv) != 3 or sys.argv[1] not in ("pqtls", "pqtls-mut", "kemtls", "kemtls-mut", "kemtls-pdk", "kemtls-pdk-mut"):
+SUPPORTED_TYPES = ("pqtls", "pqtls-mut", "kemtls", "kemtls-mut", "kemtls-pdk", "kemtls-pdk-mut")
+
+if len(sys.argv) != 3 or sys.argv[1] not in SUPPORTED_TYPES:
     print(f"Usage: {sys.argv[0]} <TYPE> dump.json")
     sys.exit(1)
 
@@ -130,20 +132,20 @@ if TLS_TYPE == "pqtls" or TLS_TYPE == "pqtls-mut":
         servmsgs = list(filter(lambda p: p.srcport == server_port, handshake))
         smsgiter = itertools.chain.from_iterable(msg.tls_records for msg in servmsgs)
         assert servmsgs[0].is_server_hello
-        
+
         size += (msgsize := length(next(smsgiter)))
         logging.debug(f"Server hello size: {msgsize}")
 
         size += (msgsize := length(next(smsgiter)))
         assert msgsize == 6, f"expected ccs to be 6 bytes instead of {msgsize}"
         logging.debug(f"ChangeCipherSpec size: {msgsize}")
-        
+
         size += (msgsize := length(next(smsgiter)))
         logging.debug(f"EncryptedExtensions size: {msgsize}")
         if TLS_TYPE == "pqtls-mut":
             size += (msgsize := length(next(smsgiter)))
             logging.debug(f"CertificateRequest size: {msgsize}")
-        
+
         cert_size = (msgsize := length(next(smsgiter)))
         while msgsize == 16406:  # magic constant for large msgs that got fragmented by TLS
             cert_size += (msgsize := length(next(smsgiter)))
@@ -227,7 +229,7 @@ if TLS_TYPE == "kemtls" or TLS_TYPE == "kemtls-mut":
                 cert_size += (msgsize := length(next(cmsgiter)))
             size += cert_size
             logging.debug("ClientCertificate size: %d", cert_size)
-            
+
             # SKEX
             size += (msgsize := length(next(smsgiter)))
             logging.debug("ServerCiphertext size: %d", msgsize)
@@ -264,7 +266,7 @@ if TLS_TYPE == "kemtls-pdk" or TLS_TYPE == "kemtls-pdk-mut":
         if TLS_TYPE == "kemtls-pdk-mut":
             size += (msgsize := length(msg := next(cmsgiter)))
             logging.debug(f"ChangeCipherSpec: {msgsize}")
-            
+
             cert_size = (msgsize := length(next(cmsgiter)))
             while msgsize == 16406:  # magic constant for large msgs that got fragmented by TLS
                 cert_size += (msgsize := length(next(cmsgiter)))
@@ -284,7 +286,7 @@ if TLS_TYPE == "kemtls-pdk" or TLS_TYPE == "kemtls-pdk-mut":
         if TLS_TYPE == "kemtls-pdk-mut":
             size += (msgsize := length(next(smsgiter)))
             logging.debug("ServerKemCiphertext size: %d", msgsize)
-        
+
         size += (msgsize := length(next(smsgiter)))
         logging.debug(f"ServerFinished size: {msgsize}")
         assert msgsize == 58, f"Expected finished size to be 58 bytes instead of {msgsize}"
@@ -297,5 +299,5 @@ if TLS_TYPE == "kemtls-pdk" or TLS_TYPE == "kemtls-pdk-mut":
         size += (msgsize := length(next(cmsgiter)))
         logging.debug(f"ClientFinished: {msgsize}")
         assert msgsize == 58, f"Expected finished size to be 58 bytes instead of {msgsize}"
-       
+
         print(f"Total size: {size}")

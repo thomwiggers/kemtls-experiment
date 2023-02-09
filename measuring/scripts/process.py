@@ -4,20 +4,23 @@ from collections import defaultdict
 from itertools import chain
 import csv
 import os
-import pathlib
+from pathlib import Path
 import re
 import statistics
 import multiprocessing
 
-from typing import Any
+
+from typing import Any, Literal, Optional, Union, cast
+
+from measuring.scripts.experiment import Experiment
 
 
-DATAPATH = pathlib.Path(__file__).parent.absolute().parent / "data"
+DATAPATH = Path(__file__).parent.absolute().parent / "data"
 PROCESSED_PATH = DATAPATH / ".." / "processed"
 
 
 #: Renames for the key exchange
-KEX_RENAMES = {
+KEX_RENAMES: dict[str, str] = {
     "X25519": "E",
     "Kyber768": "Kiii",
     "Falcon1024": "Fv",
@@ -26,7 +29,7 @@ KEX_RENAMES = {
     "CTIDH2047K221": "Ct",
 }
 
-SIG_RENAMES = {
+SIG_RENAMES: dict[str, str] = {
     "RainbowICircumzenithal": "Rcz",
 }
 
@@ -35,8 +38,16 @@ AUTH_RENAMES = dict()
 AUTH_RENAMES.update(KEX_RENAMES)
 AUTH_RENAMES.update(SIG_RENAMES)
 
+ExperimentType = Union[
+    Literal["sig"],
+    Literal["pdk"],
+    Literal["kemtls"],
+    Literal["sigcache"],
+    Literal["optls"],
+]
 
-def get_experiment_name(experiment: dict[str, Any]):
+
+def get_experiment_name(experiment: dict[str, Any]) -> str:
     kex = experiment["kex"]
     leaf = experiment["leaf"]
     inter = experiment["int"]
@@ -45,7 +56,7 @@ def get_experiment_name(experiment: dict[str, Any]):
     clca = experiment["clca"]
     keycache = experiment["keycache"]
 
-    type = ""
+    type: Optional[ExperimentType] = None
     if experiment["type"] == "pdk":
         type = "pdk"
     elif experiment["type"] == "kemtls":
@@ -97,20 +108,22 @@ def read_csv_lines(filename):
                 yield line
 
 
-def get_averages(filename):
-    sums = defaultdict(list)
+def get_averages(filename: Union[str, Path]) -> tuple[dict[str, float], int]:
+    sums: defaultdict[str, list] = defaultdict(list)
     for line in read_csv_lines(filename):
         for key, val in line.items():
             sums[key].append(int(val) / 1000)  # convert to microseconds
-    results = {}
+    results: dict[str, float] = dict()
+    key = None
     for key in sums.keys():
         results[key] = round(statistics.mean(sums[key]), 3)
         results[f"{key} stdev"] = round(statistics.stdev(sums[key]), 3)
+    assert key is not None
 
-    return (dict(results), len(sums[key]))
+    return (results, len(sums[key]))
 
 
-AVG_FIELDS = [
+AVG_FIELDS: list[str] = [
     "type",
     "kex",
     "leaf",
@@ -191,10 +204,10 @@ AVG_FIELDS = [
 ]
 
 
-def format_results_tex(avgs):
+def format_results_tex(avgs: dict[str, Any]):
     latency = float(avgs["rtt"])
-    loss = avgs["drop_rate"]
-    rate = avgs["rate"]
+    loss: str = avgs["drop_rate"]
+    rate: str = avgs["rate"]
 
     macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs['name']
 
@@ -213,17 +226,18 @@ def format_results_tex(avgs):
         texfile.write(macro("clientgotreply", avgs["client received server reply"]))
 
 
-def process_experiment(experiment):
-    (filename, experiment) = experiment
-    (avgs, count) = get_averages(filename)
+def process_experiment(experiment: tuple[str, dict[str, Union[int,float,bool,str]]]) -> dict[str, Union[int,float,bool,str]]:
+    (filename, data) = experiment
+    (the_avgs, count) = get_averages(filename)
+    avgs = cast(dict[str, Union[float, int, bool, str]], the_avgs)
     print(f"processed {filename} and got {count} points")
     avgs["measurements"] = count
-    avgs.update(experiment)
+    avgs.update(data)
     return avgs
 
 
 # https://stackoverflow.com/a/54392761/248065
-def dump_lua(data):
+def dump_lua(data) -> str:
     if type(data) is str:
         return f'"{data}"'
     if type(data) in (int, float):
@@ -278,7 +292,9 @@ def write_averages(experiments):
             item = item[key]
         for key_item in avgs.keys():
             if key_item.startswith("server ") or key_item.startswith("client "):
-                item[key_item] = avgs[key_item] / 1000
+                val = avgs[key_item]
+                assert isinstance(val, (int, float))
+                item[key_item] = val / 1000
 
     with open(PROCESSED_PATH / "avgs.lua", "w+") as luafile:
         luafile.write("measurement_results=")
@@ -295,16 +311,16 @@ EXPERIMENT_REGEX = re.compile(
 )
 
 
-def get_experiments():
+def get_experiments() -> list[tuple[Path, dict[str, Any]]]:
     filenames = DATAPATH.glob("*/*.csv")
     return [(filename, get_experiment(filename)) for filename in filenames]
 
 
-def get_experiment(filename):
+def get_experiment(filename) -> dict[str, Union[int, float, bool, str]]:
     relpath = str(filename.relative_to(DATAPATH))
     matches = EXPERIMENT_REGEX.match(relpath)
     assert matches, f"Experiment '{relpath}' doesn't match regex"
-    experiment = {}
+    experiment: dict[str, Union[int, bool, str, float]] = {}
     experiment["int-only"] = matches.group("cached") == "int-only"
     experiment["keycache"] = matches.group("keycache") == "keycache"
     experiment["filename"] = filename.name
