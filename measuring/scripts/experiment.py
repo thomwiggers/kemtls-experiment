@@ -271,7 +271,7 @@ TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
 
 
 def run_subprocess(
-    command: subprocess._CMD, working_dir: str = ".", expected_returncode: int = 0
+    command, working_dir: str = ".", expected_returncode: int = 0
 ) -> str:
     result = subprocess.run(
         command,
