@@ -9,7 +9,7 @@ cargo update
 popd
 
 pushd webpki/src
-python generate_schemes.py
+python3 generate_schemes.py
 git add data generated
 popd
 
@@ -19,7 +19,7 @@ cargo check
 popd
 
 pushd rustls
-python generate_schemes.py
+python3 generate_schemes.py
 git add rustls/src/generated
 cargo update
 popd
