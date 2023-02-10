@@ -135,28 +135,60 @@ FRODOS = [
     for size in ("640", "976", "1344")
     for alg in ("aes", "shake")
 ]
+SMALLFRODOS = [frodo for frodo in FRODOS if "640" in frodo]
 KYBERS = ["Kyber512", "Kyber768", "Kyber1024"]
 BIKES = ["BikeL1", "BikeL3"]  # NOTE: IND-CPA!
 HQCS = ["Hqc128", "Hqc192", "Hqc256"]
-MCELIECES = [
+MCELIECES_ = [
     f"ClassicMcEliece{size}{variant}"
     for size in ("348864", "460896", "6688128", "6960119", "8192128")
     for variant in ["", "f"]
 ]
+MCELIECEL1 = [mc for mc in MCELIECES_ if "348864" in mc]
+MCELIECEL3 = [mc for mc in MCELIECES_ if "460896" in mc]
+MCELIECEL5 = [mc for mc in MCELIECES_ if mc not in (MCELIECEL1 + MCELIECEL3)]
+MCELIECES = {1: MCELIECEL1, 3: MCELIECEL3, 5: MCELIECEL5}
+
 DILITHIUMS = ["Dilithium2", "Dilithium3", "Dilithium5"]
 FALCONS = ["Falcon512", "Falcon1024"]
-SPHINCSES = [
+SPHINCSES_ = [
     f"SphincsShake{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
 ]
+SPHINCSESL1 = [spx for spx in SPHINCSES_ if "128" in spx]
+SPHINCSESL3 = [spx for spx in SPHINCSES_ if "196" in spx]
+SPHINCSESL5 = [spx for spx in SPHINCSES_ if "256" in spx]
 
-
-KEMS: list[str] = [
-    *KYBERS,
-    *HQCS,
-    *[frodo for frodo in FRODOS if "640" in frodo],
-    *BIKES,
+UOVS_ = [
+    f"Pqov{size}{variant}"
+    for size in ("1616064", "25611244", "25618472", "25624496")
+    for variant in ["Classic"]
 ]
-SIGS: list[str] = [*DILITHIUMS, *FALCONS, *SPHINCSES]
+UOVL1 = [uov for uov in UOVS_ if "1616064" in uov or "25611244" in uov]
+UOVL3 = [uov for uov in UOVS_ if "25618472" in uov]
+UOVL5 = [uov for uov in UOVS_ if "25624496" in uov]
+UOVS = {1: UOVL1, 3: UOVL3, 5: UOVL5}
+
+# KEMS: list[str] = [
+#     *KYBERS,
+#     *HQCS,
+#     *BIKES,
+#     *SMALLFRODOS,
+# ]
+
+KEMSL1 = [KYBERS[0], BIKES[0], HQCS[0], *SMALLFRODOS]
+KEMSL3 = [KYBERS[1], BIKES[1], HQCS[1]]
+KEMSL5 = [KYBERS[2], HQCS[2]]
+
+LEVELS = [1, 3, 5]
+KEMS = {1: KEMSL1, 3: KEMSL3, 5: KEMSL5}
+
+# SIGS: list[str] = [*DILITHIUMS, *FALCONS, *SPHINCSES]
+
+SIGSL1 = [DILITHIUMS[0], FALCONS[0], *SPHINCSESL1]
+SIGSL3 = [DILITHIUMS[1], FALCONS[1], *SPHINCSESL3]
+SIGSL5 = [DILITHIUMS[2], FALCONS[1], *SPHINCSESL5]
+
+SIGS = {1: SIGSL1, 3: SIGSL3, 5: SIGSL5}
 
 ALGORITHMS: list[Experiment] = [
     # Need to specify leaf always as sigalg to construct correct binary directory
@@ -166,42 +198,116 @@ ALGORITHMS: list[Experiment] = [
     Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
-    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMS for sig in SIGS),
-    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMS for sig in SIGS),
+    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMSL1 for sig in SIGSL1),
+    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMSL3 for sig in SIGSL3),
+    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMSL5 for sig in SIGSL5),
+    ## Mutually authenticated
+    *(
+        Experiment("sign", kem, sig, sig, sig, sig, sig)
+        for kem in KEMSL1
+        for sig in SIGSL1
+    ),
+    *(
+        Experiment("sign", kem, sig, sig, sig, sig, sig)
+        for kem in KEMSL3
+        for sig in SIGSL3
+    ),
+    *(
+        Experiment("sign", kem, sig, sig, sig, sig, sig)
+        for kem in KEMSL5
+        for sig in SIGSL5
+    ),
     #  TLS with cached certs + client auth
     *(
         Experiment("sign-cached", kex, sig, client_auth=sig, client_ca=sig)
-        for kex in [*KEMS]
-        for sig in SIGS
+        for level in LEVELS
+        for kex in KEMS[level]
+        for sig in SIGS[level]
+    ),
+    #  KEMTLS
+    *(
+        Experiment("kemtls", kex, kex, sig, sig)
+        for level in LEVELS
+        for kex in KEMS[level]
+        for sig in SIGS[level]
+    ),
+    #  KEMTLS mutual
+    *(
+        Experiment("kemtls", kex, kex, sig, sig, kex, sig)
+        for level in LEVELS
+        for kex in KEMS[level]
+        for sig in SIGS[level]
+    ),
+    #  KEMTLS extra combinations L1
+    *(
+        Experiment("kemtls", kex, kex, sig, sig2)
+        for kex in KEMSL1
+        for sig in [DILITHIUMS[0], FALCONS[0]]
+        for sig2 in [FALCONS[0], *UOVS[1]]
+        if sig2 != sig
+    ),
+    #  KEMTLS extra L3
+    *(
+        Experiment("kemtls", kex, kex, sig, sig2)
+        for kex in KEMSL3
+        for sig in [DILITHIUMS[1], FALCONS[1]]
+        for sig2 in [FALCONS[1], *UOVS[3]]
+        if sig2 != sig
+    ),
+    #  KEMTLS extra L5
+    *(
+        Experiment("kemtls", kex, kex, sig, sig2)
+        for kex in KEMSL5
+        for sig in [DILITHIUMS[2], FALCONS[1]]
+        for sig2 in [FALCONS[1], *UOVS[5]]
+        if sig2 != sig
+    ),
+    #  KEMTLS MUTUAL extra combinations
+    *(
+        Experiment("kemtls", kex, kex, sig, sig2, kex, sig2)
+        for kex in KEMSL1
+        for sig in [DILITHIUMS[0], FALCONS[0]]
+        for sig2 in [DILITHIUMS[0], FALCONS[0], *UOVS[1]]
+    ),
+    #  KEMTLS MUTUAL extra combinations
+    *(
+        Experiment("kemtls", kex, kex, sig, sig2, kex, sig2)
+        for kex in KEMSL3
+        for sig in [DILITHIUMS[1], FALCONS[1]]
+        for sig2 in [DILITHIUMS[1], FALCONS[1], *UOVS[3]]
+        if sig2 != sig
+    ),
+    *(
+        Experiment("kemtls", kex, kex, sig, sig2, kex, sig2)
+        for kex in KEMSL5
+        for sig in [DILITHIUMS[2], FALCONS[1]]
+        for sig2 in [DILITHIUMS[2], FALCONS[1], *UOVS[5]]
+        if sig2 != sig
     ),
     #  PDK
     #   Level 1
-    *(
-        Experiment("pdk", kex, kex)
-        for kex in [
-            *KEMS,
-        ]
-    ),
+    *(Experiment("pdk", kex, kex) for kex in [*KEMSL1, *KEMSL3, *KEMSL5]),
     #    With mutual auth
     *(
         Experiment("pdk", kex, kex, client_auth=kex, client_ca=sig)
-        for kex in KEMS
-        for sig in SIGS
+        for level in LEVELS
+        for kex in KEMS[level]
+        for sig in SIGS[level]
     ),
     #   Special combos with McEliece
     *(
         Experiment("pdk", kex, leaf=mceliece)
-        for kex in [
-            *KEMS,
-        ]
-        for mceliece in MCELIECES
+        for level in LEVELS
+        for kex in KEMS[level]
+        for mceliece in MCELIECES[level]
     ),
     # McEliece + Mutual
     *(
         Experiment("pdk", kex, mceliece, client_auth=kex, client_ca=sig)
-        for kex in KEMS
-        for sig in SIGS
-        for mceliece in MCELIECES
+        for level in LEVELS
+        for kex in KEMS[level]
+        for sig in SIGS[level]
+        for mceliece in MCELIECES[level]
     ),
     # OPTLS
     *(
@@ -554,7 +660,8 @@ def run_measurement(
         logger.debug(f"Completed measurements on port {port}")
         measurement: ResultType = {}
         for line in proc_result.stdout.split("\n"):
-            assert "WebPKIError" not in line
+            logger.debug("LINE FROM LOG: %s", line)
+            assert "WebPKIError" not in line, f"Got WebPKIError in line '{line}'"
             result = TIMER_REGEX.match(line)
             if result:
                 label: str = result.group("label")
@@ -864,6 +971,7 @@ if __name__ == "__main__":
     logger.addHandler(ch)
 
     algs = ALGORITHMS
+    logger.info("Starting with %s instantiations", len(algs))
     if (type := os.environ.get("EXPERIMENT")) is not None:
         algs = filter(lambda x: x.type == type, ALGORITHMS)
     if (kex := os.environ.get("KEX")) is not None:
