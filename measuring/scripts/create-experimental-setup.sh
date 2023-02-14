@@ -26,13 +26,15 @@ if [ "$KEYGEN_CACHE" != "" ]; then
   extra_args="$extra_args --build-arg RUSTLS_FEATURES=--features=lru"
 fi
 
+dockertag="$(echo -n $tag | shasum - | cut -f1 -d' ')"
+
 docker build \
     --build-arg ROOT_SIGALG=$ROOT_SIGALG \
     --build-arg INT_SIGALG=$INT_SIGALG \
     --build-arg LEAF_ALG=$LEAF_ALG \
     --build-arg KEX_ALG=$KEX_ALG \
     $extra_args \
-    --tag pqtls-builder:$tag .
+    --tag "pqtls-builder:$dockertag" .
 
 volumename=$PWD/measuring/bin/$tag
 echo $volumename
@@ -43,7 +45,7 @@ docker run --rm \
     --user $(id -u):$(id -g) \
     --volume $volumename:/output \
     --workdir /output   \
-    pqtls-builder:$tag \
+    "pqtls-builder:$dockertag" \
     bash -c "cp /usr/local/bin/tlsserver . &&
              cp /usr/local/bin/tlsclient . &&
              cp /certs/* ."
