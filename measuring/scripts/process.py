@@ -12,7 +12,7 @@ import multiprocessing
 
 from typing import Any, Literal, Optional, Union, cast
 
-from measuring.scripts.experiment import Experiment
+from experiment import Experiment
 
 
 DATAPATH = Path(__file__).parent.absolute().parent / "data"

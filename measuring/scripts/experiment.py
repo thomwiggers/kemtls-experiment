@@ -1,32 +1,23 @@
 """Based on https://github.com/xvzcf/pq-tls-benchmark/blob/master/emulation-exp/code/kex/experiment.py"""
 
 import csv
-from dataclasses import dataclass
-from functools import partial
-import multiprocessing
-from multiprocessing.connection import Connection
-import os
+import datetime
 import io
-import subprocess
 import itertools
-import time
+import logging
+import math
+import multiprocessing
+import os
 import re
 import socket
-import logging
-import datetime
-from pathlib import Path
-from typing import (
-    Final,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Tuple,
-    Union,
-    Literal,
-    cast,
-)
+import subprocess
 import sys
+import time
+from functools import partial
+from multiprocessing.connection import Connection
+from pathlib import Path
+from typing import (Final, Iterable, List, Literal, NamedTuple, Optional,
+                    Tuple, Union, cast)
 
 ###################################################################################################
 ## SETTTINGS ######################################################################################
@@ -49,7 +40,7 @@ SPEEDS: Final[list[int]] = [1000, 10]
 # xvzcf's experiment used POOL_SIZE = 40
 # We start as many servers as clients, so make sure to adjust accordingly
 START_PORT: Final[int] = 10000
-POOL_SIZE: Final[int] = 1
+POOL_SIZE: Final[int] = 40
 ITERATIONS: Final[int] = 1
 # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
 MEASUREMENTS_PER_ITERATION: Final[int] = 20
@@ -130,6 +121,20 @@ class Experiment(NamedTuple):
     keygen_cache: bool = False
 
 
+    def all_algorithms(self) -> set[str]:
+        algs = {self.kex, self.leaf}
+        if self.intermediate is not None:
+            algs.add(self.intermediate)
+        if self.root is not None:
+            algs.add(self.root)
+        if self.client_auth is not None:
+            algs.add(self.client_auth)
+        if self.client_ca is not None:
+            algs.add(self.client_ca)
+
+        return algs
+
+
 FRODOS = [
     f"FrodoKem{size.title()}{alg.title()}"
     for size in ("640", "976", "1344")
@@ -152,7 +157,7 @@ MCELIECES = {1: MCELIECEL1, 3: MCELIECEL3, 5: MCELIECEL5}
 DILITHIUMS = ["Dilithium2", "Dilithium3", "Dilithium5"]
 FALCONS = ["Falcon512", "Falcon1024"]
 SPHINCSES_ = [
-    f"SphincsShake{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
+    f"SphincsSha2{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
 ]
 SPHINCSESL1 = [spx for spx in SPHINCSES_ if "128" in spx]
 SPHINCSESL3 = [spx for spx in SPHINCSES_ if "196" in spx]
@@ -166,7 +171,8 @@ UOVS_ = [
 UOVL1 = [uov for uov in UOVS_ if "1616064" in uov or "25611244" in uov]
 UOVL3 = [uov for uov in UOVS_ if "25618472" in uov]
 UOVL5 = [uov for uov in UOVS_ if "25624496" in uov]
-UOVS = {1: UOVL1, 3: UOVL3, 5: UOVL5}
+#UOVS = {1: UOVL1, 3: UOVL3, 5: UOVL5}
+UOVS = {1: [], 3: [], 5: []}
 
 # KEMS: list[str] = [
 #     *KYBERS,
@@ -556,6 +562,24 @@ class ServerProcess(multiprocessing.Process):
             self.server_process.kill()
 
 
+def expected_timeout(experiment: Experiment, latency: float) -> int:
+    expected_measurement_time: int = 5
+    if experiment.type == "optls":
+        expected_measurement_time = 200
+    elif "SphincsSha2256fSimple" in experiment:
+        expected_measurement_time = 10
+
+    if latency > 100:
+        expected_measurement_time *= 2
+
+    if experiment.client_auth is not None:
+        expected_measurement_time = math.floor(expected_measurement_time * 1.5)
+
+    allowed_time = expected_measurement_time * (MEASUREMENTS_PER_CLIENT + 1)
+    logger.debug("Allowing %d seconds per run for this experiment", allowed_time)
+    return allowed_time
+
+
 ExperimentOutput = tuple[str, str, list[tuple[ResultType, ResultType]]]
 
 
@@ -563,7 +587,8 @@ def run_measurement(
     output_queue: "multiprocessing.Queue[ExperimentOutput]",
     port,
     experiment: Experiment,
-    cached_int,
+    cached_int: bool,
+    latency: float,
 ):
     (inpipe, outpipe) = multiprocessing.Pipe()
     server = ServerProcess(port, inpipe, experiment, cached_int)
@@ -604,7 +629,6 @@ def run_measurement(
             "client.key",
         ]
     cmd: List[str] = []
-    expected_measurement_time: int = 200 if experiment.type == "optls" else 10
     while (
         len(client_measurements) < MEASUREMENTS_PER_ITERATION
         and server.is_alive()
@@ -642,7 +666,7 @@ def run_measurement(
                 cmd,
                 text=True,
                 stdout=subprocess.PIPE,
-                timeout=expected_measurement_time * MEASUREMENTS_PER_CLIENT + 1,
+                timeout=expected_timeout(experiment, latency),
                 check=False,
                 cwd=path,
             )
@@ -695,9 +719,9 @@ def run_measurement(
     output_queue.put(output)
 
 
-def experiment_run_timers(experiment: Experiment, cached_int: bool) -> ExperimentOutput:
+def experiment_run_timers(experiment: Experiment, cached_int: bool, latency: int) -> ExperimentOutput:
     path = get_experiment_path(experiment)
-    tasks = [(port, experiment, cached_int) for port in SERVER_PORTS]
+    tasks = [(port, experiment, cached_int, latency) for port in SERVER_PORTS]
     output_queue: multiprocessing.Queue[ExperimentOutput] = multiprocessing.Queue()
     processes = [
         multiprocessing.Process(target=run_measurement, args=(output_queue, *args))
@@ -945,10 +969,11 @@ def main():
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
-                result.append(experiment_run_timers(experiment, int_only))
+                result.append(experiment_run_timers(experiment, int_only, float(rtt_ms)))
             duration = datetime.datetime.utcnow() - start_time
             num_results = sum(len(r[2]) for r in result)
             logger.info("took %s to collect %d results", duration, num_results)
+            assert num_results > 0, "Invalid results?"
 
             with open(fngetter("csv"), "w+") as outresult, open(
                 fngetter("cmdline"), "w+"
@@ -973,21 +998,21 @@ if __name__ == "__main__":
     algs = ALGORITHMS
     logger.info("Starting with %s instantiations", len(algs))
     if (type := os.environ.get("EXPERIMENT")) is not None:
-        algs = filter(lambda x: x.type == type, ALGORITHMS)
+        algs = filter(lambda x: x.type == type, algs)
     if (kex := os.environ.get("KEX")) is not None:
-        algs = filter(lambda x: x.kex == kex, ALGORITHMS)
+        algs = filter(lambda x: x.kex == kex, algs)
     if (leaf := os.environ.get("LEAF")) is not None:
-        algs = filter(lambda x: x.leaf == leaf, ALGORITHMS)
+        algs = filter(lambda x: x.leaf == leaf, algs)
     if (intermediate := os.environ.get("INT")) is not None:
-        algs = filter(lambda x: x.intermediate == intermediate, ALGORITHMS)
+        algs = filter(lambda x: x.intermediate == intermediate, algs)
     if (root := os.environ.get("ROOT")) is not None:
-        algs = filter(lambda x: x.root == root, ALGORITHMS)
+        algs = filter(lambda x: x.root == root, algs)
     if "NO_CLIENT_AUTH" in os.environ:
-        algs = filter(lambda x: x.client_auth is None, ALGORITHMS)
+        algs = filter(lambda x: x.client_auth is None, algs)
     elif (client_auth := os.environ.get("CLIENT_AUTH")) is not None:
-        algs = filter(lambda x: x.client_auth == client_auth, ALGORITHMS)
+        algs = filter(lambda x: x.client_auth == client_auth, algs)
     if (client_ca := os.environ.get("CLIENT_CA")) is not None:
-        algs = filter(lambda x: x.client_ca == client_ca, ALGORITHMS)
+        algs = filter(lambda x: x.client_ca == client_ca, algs)
     ALGORITHMS = list(algs)
 
     if len(sys.argv) < 2 or sys.argv[1] != "full":
