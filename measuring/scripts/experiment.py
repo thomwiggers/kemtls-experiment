@@ -719,7 +719,7 @@ def run_measurement(
     output_queue.put(output)
 
 
-def experiment_run_timers(experiment: Experiment, cached_int: bool, latency: int) -> ExperimentOutput:
+def experiment_run_timers(experiment: Experiment, cached_int: bool, latency: float) -> ExperimentOutput:
     path = get_experiment_path(experiment)
     tasks = [(port, experiment, cached_int, latency) for port in SERVER_PORTS]
     output_queue: multiprocessing.Queue[ExperimentOutput] = multiprocessing.Queue()
@@ -812,18 +812,21 @@ def reverse_resolve_hostname() -> str:
 def get_filename(
     experiment: Experiment, int_only: bool, rtt_ms, pkt_loss, rate, ext="csv"
 ) -> Path:
-    fileprefix = f"{experiment.kex}_{experiment.leaf}_{experiment.intermediate}"
+    fileprefix = f"{experiment.kex}_{experiment.leaf}"
+    caching_type = ""
+    if not experiment.type in ("pdk", "sign-cached"):
+        fileprefix += f"_{experiment.intermediate}"
+        caching_type = "-int-chain" if not int_only else "-int-only"
     if not int_only:
         fileprefix += f"_{experiment.root}"
     if experiment.client_auth is not None:
         fileprefix += f"_clauth_{experiment.client_auth}_{experiment.client_ca}"
     fileprefix += f"_{rtt_ms}ms"
-    caching_type = "int-chain" if not int_only else "int-only"
     keygen_cache = "-keycache" if experiment.keygen_cache else ""
     filename = (
         SCRIPTDIR.parent
         / "data"
-        / f"{experiment.type}-{caching_type}{keygen_cache}"
+        / f"{experiment.type}{caching_type}{keygen_cache}"
         / f"{fileprefix}_{pkt_loss}_{rate}mbit.{ext}"
     )
     return filename
@@ -908,7 +911,11 @@ def main():
         ["int-chain", "int-only"],
         ["", "-keycache"],
     ):
-        dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}{keycache}"
+        if type not in ("sign-cached", "pdk"):
+            dirname = SCRIPTDIR.parent / "data" / f"{type}-{caching}{keycache}"
+        else:
+            # no int-only for pdk/sign-cached as they don't send cert chains
+            dirname = SCRIPTDIR.parent / "data" / f"{type}{keycache}"
         os.makedirs(dirname, exist_ok=True)
         os.chown(dirname, uid=1001, gid=1001)
 
@@ -1043,4 +1050,7 @@ if __name__ == "__main__":
 
     setup_experiments()
     hostname = reverse_resolve_hostname()
+    start = datetime.datetime.now()
     main()
+    duration = datetime.datetime.now() - start
+    logger.info("Completed work in %s", duration)

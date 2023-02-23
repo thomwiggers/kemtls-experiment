@@ -304,8 +304,8 @@ def write_averages(experiments):
 
 
 EXPERIMENT_REGEX = re.compile(
-    r"(?P<type>(kemtls|sign|sign-cached|optls|pdk))-(?P<cached>(int-chain|int-only))(-(?P<keycache>keycache))?/"
-    r"(?P<kex>[^_]+)_(?P<leaf>[^_]+)_(?P<int>[^_]+)(_(?P<root>[^_]+))?"
+    r"(?P<type>(kemtls|sign|sign-cached|optls|pdk))(-(?P<cached>(int-chain|int-only)))?(-(?P<keycache>keycache))?/"
+    r"(?P<kex>[^_]+)_(?P<leaf>[^_]+)(_(?P<int>[^_]+))?(_(?P<root>[^_]+))?"
     r"(_clauth_(?P<clauth>[^_]+)_(?P<clca>[^_]+))?"
     r"_(?P<rtt>\d+\.\d+)ms_(?P<drop_rate>\d+(\.\d+)?)_(?P<rate>\d+mbit).csv"
 )
@@ -321,8 +321,6 @@ def get_experiment(filename) -> dict[str, Union[int, float, bool, str]]:
     matches = EXPERIMENT_REGEX.match(relpath)
     assert matches, f"Experiment '{relpath}' doesn't match regex"
     experiment: dict[str, Union[int, bool, str, float]] = {}
-    experiment["int-only"] = matches.group("cached") == "int-only"
-    experiment["keycache"] = matches.group("keycache") == "keycache"
     experiment["filename"] = filename.name
     for item in [
         "type",
@@ -337,6 +335,17 @@ def get_experiment(filename) -> dict[str, Union[int, float, bool, str]]:
         "rate",
     ]:
         experiment[item] = matches.group(item)
+
+    if experiment["type"] not in ("pdk", "sign-cached"):
+        experiment["int-only"] = matches.group("cached") == "int-only"
+    else:
+        experiment["int-only"] = True
+        assert matches.group("cached") is None
+        assert experiment["int"] is None
+        assert experiment["root"] is None
+        assert matches.group("int") is None
+
+    experiment["keycache"] = matches.group("keycache") == "keycache"
 
     if experiment["int-only"]:
         assert experiment["root"] is None
