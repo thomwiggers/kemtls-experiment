@@ -142,8 +142,10 @@ FRODOS = [
 ]
 SMALLFRODOS = [frodo for frodo in FRODOS if "640" in frodo]
 KYBERS = ["Kyber512", "Kyber768", "Kyber1024"]
+KYBER = {1: "Kyber512", 3: "Kyber768", 5: "Kyber1024"}
 BIKES = ["BikeL1", "BikeL3"]  # NOTE: IND-CPA!
 HQCS = ["Hqc128", "Hqc192", "Hqc256"]
+HQC = {1: "Hqc128", 3: "Hqc192", 5: "Hqc256"}
 MCELIECES_ = [
     f"ClassicMcEliece{size}{variant}"
     for size in ("348864", "460896", "6688128", "6960119", "8192128")
@@ -155,13 +157,20 @@ MCELIECEL5 = [mc for mc in MCELIECES_ if mc not in (MCELIECEL1 + MCELIECEL3)]
 MCELIECES = {1: MCELIECEL1, 3: MCELIECEL3, 5: MCELIECEL5}
 
 DILITHIUMS = ["Dilithium2", "Dilithium3", "Dilithium5"]
+# yes I know D2 is level 2, but this is how we map the experiments
+DILITHIUM = {1: "Dilithium2", 3: "Dilithium3", 5: "Dilithium5"}
 FALCONS = ["Falcon512", "Falcon1024"]
+# Idem falcon 1024 which is level 5, but which we use in the L3 experiments
+FALCON = {1: "Falcon512", 3: "Falcon1024", 5: "Falcon1024"}
 SPHINCSES_ = [
-    f"SphincsSha2{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
+    f"SphincsHaraka{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
 ]
 SPHINCSESL1 = [spx for spx in SPHINCSES_ if "128" in spx]
 SPHINCSESL3 = [spx for spx in SPHINCSES_ if "196" in spx]
 SPHINCSESL5 = [spx for spx in SPHINCSES_ if "256" in spx]
+SPHINCS = {1: SPHINCSESL1, 3: SPHINCSESL3, 5: SPHINCSESL5}
+
+XMSS = {1: "XMSS1", 3: "XMSS3", 5: "XMSS5"}
 
 UOVS_ = [
     f"Pqov{size}{variant}"
@@ -196,33 +205,68 @@ SIGSL5 = [DILITHIUMS[2], FALCONS[1], *SPHINCSESL5]
 
 SIGS = {1: SIGSL1, 3: SIGSL3, 5: SIGSL5}
 
-ALGORITHMS: list[Experiment] = [
+ALGORITHMS: set[Experiment] = {
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT - CLIENT AUTH - CLIENT CA
+
+    # Smaller list of actually printed experiments
     Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
+
+    # PQ experiments
+    # KDDD & KFFF + KSfSfSf + KSsSsSs
+    *(
+        Experiment("sign", KYBER[level], sig, sig, sig)
+        for level in LEVELS
+        for sig in [DILITHIUM[level], FALCON[level], *SPHINCS[level]]
+    ),
+    # KDFF
+    *(
+        Experiment("sign", KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level])
+        for level in LEVELS
+    ),
+    # KSxXX + KDXX
+    *(
+        Experiment("sign", KYBER[level], sig, XMSS[level], XMSS[level])
+        for level in LEVELS
+        for sig in [*SPHINCS[level], DILITHIUM[level]]
+    ),
+    # HDDD
+    *(
+        Experiment("sign", HQC[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level])
+        for level in LEVELS
+    ),
+
+    ## KEMTLS
+
+    # KKDD + KKFF + KKSxSx + KKXX
+    *(
+        Experiment("kemtls", KYBER[level], KYBER[level], sig, sig)
+        for level in LEVELS
+        for sig in {DILITHIUM[level], FALCON[level], *SPHINCS[level], XMSS[level]}
+    ),
+    *(Experiment("kemtls", HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level]) for level in LEVELS),
+
+    ## PDK
+
+    ## KK + HH
+    *(Experiment("pdk", kem, kem) for level in LEVELS for kem in [KYBER[level], HQC[level]]),
+    # Mceliece + K
+    *(Experiment("pdk", KYBER[level], kem) for level in LEVELS for kem in MCELIECES[level]),
+}
+
+BIG_LIST: set[Experiment] = {
     Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
     Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
-    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMSL1 for sig in SIGSL1),
-    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMSL3 for sig in SIGSL3),
-    *(Experiment("sign", kem, sig, sig, sig) for kem in KEMSL5 for sig in SIGSL5),
+    *(Experiment("sign", kem, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    #  PQ Signed KEX with XMSS roots
+    *(Experiment("sign", kem, sig, XMSS[level], XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
     ## Mutually authenticated
-    *(
-        Experiment("sign", kem, sig, sig, sig, sig, sig)
-        for kem in KEMSL1
-        for sig in SIGSL1
-    ),
-    *(
-        Experiment("sign", kem, sig, sig, sig, sig, sig)
-        for kem in KEMSL3
-        for sig in SIGSL3
-    ),
-    *(
-        Experiment("sign", kem, sig, sig, sig, sig, sig)
-        for kem in KEMSL5
-        for sig in SIGSL5
-    ),
+    *(Experiment("sign", kem, sig, sig, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    #  PQ Signed KEX with XMSS roots
+    *(Experiment("sign", kem, sig, XMSS[level], XMSS[level], sig, XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
     #  TLS with cached certs + client auth
     *(
         Experiment("sign-cached", kex, sig, client_auth=sig, client_ca=sig)
@@ -235,14 +279,15 @@ ALGORITHMS: list[Experiment] = [
         Experiment("kemtls", kex, kex, sig, sig)
         for level in LEVELS
         for kex in KEMS[level]
-        for sig in SIGS[level]
+        for sig in [*SIGS[level], XMSS[level]]
     ),
+    #  KEMTLS
     #  KEMTLS mutual
     *(
         Experiment("kemtls", kex, kex, sig, sig, kex, sig)
         for level in LEVELS
         for kex in KEMS[level]
-        for sig in SIGS[level]
+        for sig in [*SIGS[level], XMSS[level]]
     ),
     #  KEMTLS extra combinations L1
     *(
@@ -298,7 +343,7 @@ ALGORITHMS: list[Experiment] = [
         Experiment("pdk", kex, kex, client_auth=kex, client_ca=sig)
         for level in LEVELS
         for kex in KEMS[level]
-        for sig in SIGS[level]
+        for sig in [*SIGS[level], XMSS[level]]
     ),
     #   Special combos with McEliece
     *(
@@ -312,7 +357,7 @@ ALGORITHMS: list[Experiment] = [
         Experiment("pdk", kex, mceliece, client_auth=kex, client_ca=sig)
         for level in LEVELS
         for kex in KEMS[level]
-        for sig in SIGS[level]
+        for sig in [*SIGS[level], XMSS[level]]
         for mceliece in MCELIECES[level]
     ),
     # OPTLS
@@ -330,7 +375,7 @@ ALGORITHMS: list[Experiment] = [
             "CTIDH2047K221",
         )
     ),
-]
+}
 
 # Validate choices
 def __validate_experiments() -> None:
@@ -372,11 +417,11 @@ def only_unique_experiments() -> None:
         seen.add((exp.type, exp.client_auth is None, exp.keygen_cache))
         return exp
 
-    ALGORITHMS = [
+    ALGORITHMS = {
         update(exp)
         for exp in ALGORITHMS
         if (exp.type, exp.client_auth is None, exp.keygen_cache) not in seen
-    ]
+    }
 
 
 TIMER_REGEX = re.compile(r"(?P<label>[A-Z ]+): (?P<timing>\d+) ns")
@@ -1020,7 +1065,7 @@ if __name__ == "__main__":
         algs = filter(lambda x: x.client_auth == client_auth, algs)
     if (client_ca := os.environ.get("CLIENT_CA")) is not None:
         algs = filter(lambda x: x.client_ca == client_ca, algs)
-    ALGORITHMS = list(algs)
+    ALGORITHMS = set(algs)
 
     if len(sys.argv) < 2 or sys.argv[1] != "full":
         logger.warning("Running only one experiment of each type")
