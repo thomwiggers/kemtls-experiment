@@ -166,7 +166,7 @@ SPHINCSES_ = [
     f"SphincsHaraka{size}{var}Simple" for size in [128, 192, 256] for var in ["s", "f"]
 ]
 SPHINCSESL1 = [spx for spx in SPHINCSES_ if "128" in spx]
-SPHINCSESL3 = [spx for spx in SPHINCSES_ if "196" in spx]
+SPHINCSESL3 = [spx for spx in SPHINCSES_ if "192" in spx]
 SPHINCSESL5 = [spx for spx in SPHINCSES_ if "256" in spx]
 SPHINCS = {1: SPHINCSESL1, 3: SPHINCSESL3, 5: SPHINCSESL5}
 

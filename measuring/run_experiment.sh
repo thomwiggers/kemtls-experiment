@@ -21,4 +21,9 @@ fi
 
 sudo killall -9 tlsserver  || true
 
-ntfy done sudo -E python3.9 -u scripts/experiment.py $@
+ntfy=""
+if command -v ntfy > /dev/null; then
+    ntfy="ntfy -b pushover done "
+fi
+
+$ntfy sudo -E python3.9 -u scripts/experiment.py $@
