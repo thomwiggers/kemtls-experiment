@@ -3,16 +3,16 @@
 from collections import defaultdict
 from itertools import chain
 import csv
+import json
 import os
 from pathlib import Path
 import re
 import statistics
 import multiprocessing
 
-
 from typing import Any, Literal, Optional, Union, cast
 
-from experiment import Experiment
+from experiment import ALGORITHMS, Experiment
 
 
 DATAPATH = Path(__file__).parent.absolute().parent / "data"
@@ -209,11 +209,14 @@ def format_results_tex(avgs: dict[str, Any]):
     loss: str = avgs["drop_rate"]
     rate: str = avgs["rate"]
 
-    macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs['name']
+    macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs["name"]
 
     def macro(name, number):
         number = "%0.1f" % (number / 1000)
-        return fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}  % {avgs['filename']}" "\n"
+        return (
+            fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}  % {avgs['filename']}"
+            "\n"
+        )
 
     with open(
         PROCESSED_PATH / f"processed_results_{latency:0.1f}_{loss}_{rate}.tex", "a+"
@@ -222,11 +225,15 @@ def format_results_tex(avgs: dict[str, Any]):
 
         texfile.write(macro("clientdone", avgs["client handshake completed"]))
         texfile.write(macro("serverdone", avgs["server handshake completed"]))
-        texfile.write(macro("serverexplicitauthed", avgs["client authenticated server"]))
+        texfile.write(
+            macro("serverexplicitauthed", avgs["client authenticated server"])
+        )
         texfile.write(macro("clientgotreply", avgs["client received server reply"]))
 
 
-def process_experiment(experiment: tuple[str, dict[str, Union[int,float,bool,str]]]) -> dict[str, Union[int,float,bool,str]]:
+def process_experiment(
+    experiment: tuple[str, dict[str, Union[int, float, bool, str]]]
+) -> dict[str, Union[int, float, bool, str]]:
     (filename, data) = experiment
     (the_avgs, count) = get_averages(filename)
     avgs = cast(dict[str, Union[float, int, bool, str]], the_avgs)
@@ -241,7 +248,7 @@ def dump_lua(data) -> str:
     if type(data) is str:
         return f'"{data}"'
     if type(data) in (int, float):
-        return f'{data}'
+        return f"{data}"
     if type(data) is bool:
         return data and "true" or "false"
     if type(data) is list:
@@ -251,7 +258,7 @@ def dump_lua(data) -> str:
         return l
     if type(data) is dict:
         t = "{"
-        t += ", ".join([f'[\"{k}\"]={dump_lua(v)}' for k,v in data.items()])
+        t += ", ".join([f'["{k}"]={dump_lua(v)}' for k, v in data.items()])
         t += "}"
         return t
 
@@ -264,12 +271,12 @@ def write_averages(experiments):
     with multiprocessing.Pool() as p:
         avgses = p.map(process_experiment, experiments)
 
-    with open(PROCESSED_PATH / "avgs.csv", "w+") as csvfile:
+    with open(PROCESSED_PATH / "avgs.csv", "w") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=AVG_FIELDS)
         writer.writeheader()
         for avgs in avgses:
             name = avgs["name"]
-            #print(f"{name}: from {avgs['filename']}")
+            # print(f"{name}: from {avgs['filename']}")
 
             # Sanity check
             assert (name, avgs["rtt"]) not in names, f"Already seen {name}"
@@ -296,11 +303,11 @@ def write_averages(experiments):
                 assert isinstance(val, (int, float))
                 item[key_item] = val / 1000
 
-    with open(PROCESSED_PATH / "avgs.lua", "w+") as luafile:
+    with open(PROCESSED_PATH / "avgs.lua", "w") as luafile:
         luafile.write("measurement_results=")
         luafile.write(dump_lua(lua_table))
-
-
+    with open(PROCESSED_PATH / "avgs.json", "w") as fh:
+        json.dump(lua_table, fh, indent=2)
 
 
 EXPERIMENT_REGEX = re.compile(
@@ -355,9 +362,60 @@ def get_experiment(filename) -> dict[str, Union[int, float, bool, str]]:
     return experiment
 
 
+def create_handle(experiment: Experiment) -> str:
+    def get_handle(alg: Optional[str]) -> str:
+        if alg is None:
+            return ""
+        if alg == "X25519":
+            return "e"
+        if alg == "RSA2048":
+            return "r"
+        if alg.startswith("ClassicMcEliece"):
+            return "M"
+        if alg.startswith("Sphincs"):
+            if "f" in alg:
+                return "Sf"
+            return "Ss"
+        return alg[0]
+
+    output = (
+        get_handle(experiment.kex)
+        + get_handle(experiment.leaf)
+        + get_handle(experiment.intermediate)
+        + get_handle(experiment.root)
+    )
+    if experiment.client_auth:
+        output += "-" + get_handle(experiment.client_auth)
+        output += get_handle(experiment.client_ca)
+
+    return output
+
+
+def produce_experiment_list():
+    algs = []
+    for experiment in ALGORITHMS:
+        alg = {"handle": create_handle(experiment)}
+        for attr in (
+            "type",
+            "level",
+            "kex",
+            "leaf",
+            "intermediate",
+            "root",
+            "client_auth",
+            "client_ca",
+        ):
+            if (a := getattr(experiment, attr)) is not None:
+                alg[attr] = a
+        algs.append(alg)
+    with Path(DATAPATH / ".." / "processed" / "experiments.json").open("w") as fh:
+        json.dump(algs, fh, indent=2)
+
+
 def main():
     os.makedirs(DATAPATH / ".." / "processed", exist_ok=True)
     write_averages(get_experiments())
+    produce_experiment_list()
 
 
 if __name__ == "__main__":

@@ -107,11 +107,13 @@ ExperimentType = Union[
     Literal["optls"],
 ]
 
+NistLevel = Union[Literal[1], Literal[3], Literal[5]]
 
 class Experiment(NamedTuple):
     """Represents an experiment"""
 
     type: ExperimentType
+    level: Union[NistLevel, Literal["n/a"]]
     kex: str
     leaf: str
     intermediate: Optional[str] = None
@@ -194,7 +196,7 @@ KEMSL1 = [KYBERS[0], BIKES[0], HQCS[0], *SMALLFRODOS]
 KEMSL3 = [KYBERS[1], BIKES[1], HQCS[1]]
 KEMSL5 = [KYBERS[2], HQCS[2]]
 
-LEVELS = [1, 3, 5]
+LEVELS: list[NistLevel] = [1, 3, 5]
 KEMS = {1: KEMSL1, 3: KEMSL3, 5: KEMSL5}
 
 # SIGS: list[str] = [*DILITHIUMS, *FALCONS, *SPHINCSES]
@@ -210,30 +212,52 @@ ALGORITHMS: set[Experiment] = {
     # EXPERIMENT - KEX - LEAF - INT - ROOT - CLIENT AUTH - CLIENT CA
 
     # Smaller list of actually printed experiments
-    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
-    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
 
     # PQ experiments
     # KDDD & KFFF + KSfSfSf + KSsSsSs
     *(
-        Experiment("sign", KYBER[level], sig, sig, sig)
+        Experiment("sign", level, KYBER[level], sig, sig, sig)
+        for level in LEVELS
+        for sig in [DILITHIUM[level], FALCON[level], *SPHINCS[level]]
+    ),
+    # And the mutual variants
+    *(
+        Experiment("sign", level, KYBER[level], sig, sig, sig, sig, sig)
         for level in LEVELS
         for sig in [DILITHIUM[level], FALCON[level], *SPHINCS[level]]
     ),
     # KDFF
     *(
-        Experiment("sign", KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level])
+        Experiment("sign", level, KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level])
+        for level in LEVELS
+    ),
+    # KDFFDF
+    *(
+        Experiment("sign", level, KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level], DILITHIUM[level], FALCON[level])
         for level in LEVELS
     ),
     # KSxXX + KDXX
     *(
-        Experiment("sign", KYBER[level], sig, XMSS[level], XMSS[level])
+        Experiment("sign", level, KYBER[level], sig, XMSS[level], XMSS[level])
+        for level in LEVELS
+        for sig in [*SPHINCS[level], DILITHIUM[level]]
+    ),
+    # KSxXXSxX + KDXXDX
+    *(
+        Experiment("sign", level, KYBER[level], sig, XMSS[level], XMSS[level], sig, XMSS[level])
         for level in LEVELS
         for sig in [*SPHINCS[level], DILITHIUM[level]]
     ),
     # HDDD
     *(
-        Experiment("sign", HQC[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level])
+        Experiment("sign", level, HQC[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level])
+        for level in LEVELS
+    ),
+    # HDDDDD
+    *(
+        Experiment("sign", level, HQC[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level])
         for level in LEVELS
     ),
 
@@ -241,42 +265,53 @@ ALGORITHMS: set[Experiment] = {
 
     # KKDD + KKFF + KKSxSx + KKXX
     *(
-        Experiment("kemtls", KYBER[level], KYBER[level], sig, sig)
+        Experiment("kemtls", level, KYBER[level], KYBER[level], sig, sig)
         for level in LEVELS
         for sig in {DILITHIUM[level], FALCON[level], *SPHINCS[level], XMSS[level]}
     ),
-    *(Experiment("kemtls", HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level]) for level in LEVELS),
+    # KKDDKD + KKFFKF + KKSxSxKSx + KKXXKX
+    *(
+        Experiment("kemtls", level, KYBER[level], KYBER[level], sig, sig, KYBER[level], sig)
+        for level in LEVELS
+        for sig in {DILITHIUM[level], FALCON[level], *SPHINCS[level], XMSS[level]}
+    ),
+    *(Experiment("kemtls", level, HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level]) for level in LEVELS),
+    *(Experiment("kemtls", level, HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level], HQC[level], DILITHIUM[level]) for level in LEVELS),
 
     ## PDK
 
     ## KK + HH
-    *(Experiment("pdk", kem, kem) for level in LEVELS for kem in [KYBER[level], HQC[level]]),
+    *(Experiment("pdk", level, kem, kem) for level in LEVELS for kem in [KYBER[level], HQC[level]]),
+    ## KK-KD + HH-HD
+    *(Experiment("pdk", level, kem, kem, client_auth=kem, client_ca=DILITHIUM[level]) for level in LEVELS for kem in [KYBER[level], HQC[level]]),
     # Mceliece + K
-    *(Experiment("pdk", KYBER[level], kem) for level in LEVELS for kem in MCELIECES[level]),
+    *(Experiment("pdk", level, KYBER[level], kem) for level in LEVELS for kem in MCELIECES[level]),
+    # McEliece + K + KD
+    *(Experiment("pdk", level, KYBER[level], kem, client_auth=KYBER[level], client_ca=DILITHIUM[level]) for level in LEVELS for kem in MCELIECES[level]),
 }
 
 BIG_LIST: set[Experiment] = {
-    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048"),
-    Experiment("sign", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
     # KEMTLS paper
     #  PQ Signed KEX
-    *(Experiment("sign", kem, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(Experiment("sign", level, kem, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
     #  PQ Signed KEX with XMSS roots
-    *(Experiment("sign", kem, sig, XMSS[level], XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(Experiment("sign", level, kem, sig, XMSS[level], XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
     ## Mutually authenticated
-    *(Experiment("sign", kem, sig, sig, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(Experiment("sign", level, kem, sig, sig, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
     #  PQ Signed KEX with XMSS roots
-    *(Experiment("sign", kem, sig, XMSS[level], XMSS[level], sig, XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(Experiment("sign", level, kem, sig, XMSS[level], XMSS[level], sig, XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
     #  TLS with cached certs + client auth
     *(
-        Experiment("sign-cached", kex, sig, client_auth=sig, client_ca=sig)
+        Experiment("sign-cached", level, kex, sig, client_auth=sig, client_ca=sig)
         for level in LEVELS
         for kex in KEMS[level]
         for sig in SIGS[level]
     ),
     #  KEMTLS
     *(
-        Experiment("kemtls", kex, kex, sig, sig)
+        Experiment("kemtls", level, kex, kex, sig, sig)
         for level in LEVELS
         for kex in KEMS[level]
         for sig in [*SIGS[level], XMSS[level]]
@@ -284,14 +319,14 @@ BIG_LIST: set[Experiment] = {
     #  KEMTLS
     #  KEMTLS mutual
     *(
-        Experiment("kemtls", kex, kex, sig, sig, kex, sig)
+        Experiment("kemtls", level, kex, kex, sig, sig, kex, sig)
         for level in LEVELS
         for kex in KEMS[level]
         for sig in [*SIGS[level], XMSS[level]]
     ),
     #  KEMTLS extra combinations L1
     *(
-        Experiment("kemtls", kex, kex, sig, sig2)
+        Experiment("kemtls", 1, kex, kex, sig, sig2)
         for kex in KEMSL1
         for sig in [DILITHIUMS[0], FALCONS[0]]
         for sig2 in [FALCONS[0], *UOVS[1]]
@@ -299,7 +334,7 @@ BIG_LIST: set[Experiment] = {
     ),
     #  KEMTLS extra L3
     *(
-        Experiment("kemtls", kex, kex, sig, sig2)
+        Experiment("kemtls", 3, kex, kex, sig, sig2)
         for kex in KEMSL3
         for sig in [DILITHIUMS[1], FALCONS[1]]
         for sig2 in [FALCONS[1], *UOVS[3]]
@@ -307,7 +342,7 @@ BIG_LIST: set[Experiment] = {
     ),
     #  KEMTLS extra L5
     *(
-        Experiment("kemtls", kex, kex, sig, sig2)
+        Experiment("kemtls", 5, kex, kex, sig, sig2)
         for kex in KEMSL5
         for sig in [DILITHIUMS[2], FALCONS[1]]
         for sig2 in [FALCONS[1], *UOVS[5]]
@@ -315,46 +350,46 @@ BIG_LIST: set[Experiment] = {
     ),
     #  KEMTLS MUTUAL extra combinations
     *(
-        Experiment("kemtls", kex, kex, sig, sig2, kex, sig2)
+        Experiment("kemtls", 1, kex, kex, sig, sig2, kex, sig2)
         for kex in KEMSL1
         for sig in [DILITHIUMS[0], FALCONS[0]]
         for sig2 in [DILITHIUMS[0], FALCONS[0], *UOVS[1]]
     ),
     #  KEMTLS MUTUAL extra combinations
     *(
-        Experiment("kemtls", kex, kex, sig, sig2, kex, sig2)
+        Experiment("kemtls", 3, kex, kex, sig, sig2, kex, sig2)
         for kex in KEMSL3
         for sig in [DILITHIUMS[1], FALCONS[1]]
         for sig2 in [DILITHIUMS[1], FALCONS[1], *UOVS[3]]
         if sig2 != sig
     ),
     *(
-        Experiment("kemtls", kex, kex, sig, sig2, kex, sig2)
+        Experiment("kemtls", 5, kex, kex, sig, sig2, kex, sig2)
         for kex in KEMSL5
         for sig in [DILITHIUMS[2], FALCONS[1]]
         for sig2 in [DILITHIUMS[2], FALCONS[1], *UOVS[5]]
         if sig2 != sig
     ),
     #  PDK
-    #   Level 1
-    *(Experiment("pdk", kex, kex) for kex in [*KEMSL1, *KEMSL3, *KEMSL5]),
+    #   Level
+    *(Experiment("pdk", level, kex, kex) for level in LEVELS for kex in KEMS[level]),
     #    With mutual auth
     *(
-        Experiment("pdk", kex, kex, client_auth=kex, client_ca=sig)
+        Experiment("pdk", level, kex, kex, client_auth=kex, client_ca=sig)
         for level in LEVELS
         for kex in KEMS[level]
         for sig in [*SIGS[level], XMSS[level]]
     ),
     #   Special combos with McEliece
     *(
-        Experiment("pdk", kex, leaf=mceliece)
+        Experiment("pdk", level, kex, leaf=mceliece)
         for level in LEVELS
         for kex in KEMS[level]
         for mceliece in MCELIECES[level]
     ),
     # McEliece + Mutual
     *(
-        Experiment("pdk", kex, mceliece, client_auth=kex, client_ca=sig)
+        Experiment("pdk", level, kex, mceliece, client_auth=kex, client_ca=sig)
         for level in LEVELS
         for kex in KEMS[level]
         for sig in [*SIGS[level], XMSS[level]]
@@ -362,14 +397,14 @@ BIG_LIST: set[Experiment] = {
     ),
     # OPTLS
     *(
-        Experiment("optls", alg, alg, "Falcon512", "Falcon512", keygen_cache=True)
+        Experiment("optls", 1, alg, alg, "Falcon512", "Falcon512", keygen_cache=True)
         for alg in (
             "CSIDH2047K221",
             "CTIDH2047K221",
         )
     ),
     *(
-        Experiment("optls", alg, alg, "Falcon512", "Falcon512", keygen_cache=False)
+        Experiment("optls", 1, alg, "Falcon512", "Falcon512", keygen_cache=False)
         for alg in (
             "CSIDH2047K221",
             "CTIDH2047K221",
@@ -382,13 +417,14 @@ def __validate_experiments() -> None:
     nikes: list[str] = [alg.upper() for alg in algorithms.nikes]
     known_kexes: list[str] = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
     known_sigs: list[str] = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
-    for (_, kex, leaf, int, root, client_auth, client_ca, _) in ALGORITHMS:
+    for (type, _, kex, leaf, int, root, client_auth, client_ca, _) in ALGORITHMS:
         assert (
             kex in known_kexes
         ), f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
         assert (
-            leaf in known_kexes or leaf in known_sigs
-        ), f"{leaf} is not a known algorithm"
+            (leaf in known_kexes and type in ('kemtls', 'pdk'))
+            or (leaf in known_sigs and type not in ('kemtls', 'pdk'))
+        ), f"{leaf} is not a known algorithm for hs authentication with {type}"
         assert (
             int is None or int in known_sigs
         ), f"{int} is not a known signature algorithm"
@@ -397,9 +433,9 @@ def __validate_experiments() -> None:
         ), f"{root} is not a known signature algorithm"
         assert (
             client_auth is None
-            or client_auth in known_sigs
-            or client_auth in known_kexes
-        ), f"{client_auth} is not a known signature algorith or KEM"
+            or (client_auth in known_sigs and type not in ('kemtls', 'pdk'))
+            or (client_auth in known_kexes and type in ('kemtls', 'pdk'))
+        ), f"{client_auth} is not a known signature algorith or KEM for {type}"
         assert (
             client_ca is None or client_ca in known_sigs
         ), f"{client_ca} is not a known sigalg"
@@ -551,6 +587,7 @@ class ServerProcess(multiprocessing.Process):
         measurements: ResultType = {}
         collected_measurements: ResultListType = []
         connections = 0
+        errors = 0
         while (
             # collect one extra result for warmup
             len(collected_measurements) < MEASUREMENTS_PER_ITERATION
@@ -565,6 +602,7 @@ class ServerProcess(multiprocessing.Process):
             if result is not None:
                 label = result.group("label")
                 if label in measurements:
+                    errors += 1
                     logger.error(
                         "We're adding the same label '%s' twice to the same measurement",
                         label,
@@ -578,6 +616,9 @@ class ServerProcess(multiprocessing.Process):
                         raise ValueError(
                             f"label '{label}' already exisited in measurement"
                         )
+                    if errors > 2:
+                        self.server_process.kill()
+                        raise ValueError("This experiment has failed")
                 measurements[label] = result.group("timing")
                 if label == self.last_msg:
                     if connections % (MEASUREMENTS_PER_CLIENT + 1) != 0:
@@ -981,6 +1022,7 @@ def main():
                 rate = 10
             (
                 type,
+                _level,
                 kex_alg,
                 leaf,
                 intermediate,
