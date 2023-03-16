@@ -341,9 +341,10 @@ ALGORITHMS: set[Experiment] = {
     ),
     ## KK-KD + HH-HD
     *(
-        Experiment("pdk", level, kem, kem, client_auth=kem, client_ca=DILITHIUM[level])
+        Experiment("pdk", level, kem, kem, client_auth=kem, client_ca=sig)
         for level in LEVELS
         for kem in [KYBER[level], HQC[level]]
+        for sig in [DILITHIUM[level], FALCON[level]]
     ),
     # Mceliece + K
     *(
@@ -359,10 +360,11 @@ ALGORITHMS: set[Experiment] = {
             KYBER[level],
             kem,
             client_auth=KYBER[level],
-            client_ca=DILITHIUM[level],
+            client_ca=sig,
         )
         for level in LEVELS
         for kem in MCELIECES[level]
+        for sig in [DILITHIUM[level], FALCON[level]]
     ),
     # Sign-cached
     *(
