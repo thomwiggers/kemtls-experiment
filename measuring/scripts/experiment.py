@@ -16,8 +16,17 @@ import time
 from functools import partial
 from multiprocessing.connection import Connection
 from pathlib import Path
-from typing import (Final, Iterable, List, Literal, NamedTuple, Optional,
-                    Tuple, Union, cast)
+from typing import (
+    Final,
+    Iterable,
+    List,
+    Literal,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 ###################################################################################################
 ## SETTTINGS ######################################################################################
@@ -109,6 +118,7 @@ ExperimentType = Union[
 
 NistLevel = Union[Literal[1], Literal[3], Literal[5]]
 
+
 class Experiment(NamedTuple):
     """Represents an experiment"""
 
@@ -121,7 +131,6 @@ class Experiment(NamedTuple):
     client_auth: Optional[str] = None
     client_ca: Optional[str] = None
     keygen_cache: bool = False
-
 
     def all_algorithms(self) -> set[str]:
         algs = {self.kex, self.leaf}
@@ -182,7 +191,7 @@ UOVS_ = [
 UOVL1 = [uov for uov in UOVS_ if "1616064" in uov or "25611244" in uov]
 UOVL3 = [uov for uov in UOVS_ if "25618472" in uov]
 UOVL5 = [uov for uov in UOVS_ if "25624496" in uov]
-#UOVS = {1: UOVL1, 3: UOVL3, 5: UOVL5}
+# UOVS = {1: UOVL1, 3: UOVL3, 5: UOVL5}
 UOVS = {1: [], 3: [], 5: []}
 
 # KEMS: list[str] = [
@@ -210,11 +219,11 @@ SIGS = {1: SIGSL1, 3: SIGSL3, 5: SIGSL5}
 ALGORITHMS: set[Experiment] = {
     # Need to specify leaf always as sigalg to construct correct binary directory
     # EXPERIMENT - KEX - LEAF - INT - ROOT - CLIENT AUTH - CLIENT CA
-
     # Smaller list of actually printed experiments
     Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048"),
-    Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
-
+    Experiment(
+        "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
+    ),
     # PQ experiments
     # KDDD & KFFF + KSfSfSf + KSsSsSs
     *(
@@ -230,12 +239,23 @@ ALGORITHMS: set[Experiment] = {
     ),
     # KDFF
     *(
-        Experiment("sign", level, KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level])
+        Experiment(
+            "sign", level, KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level]
+        )
         for level in LEVELS
     ),
     # KDFFDF
     *(
-        Experiment("sign", level, KYBER[level], DILITHIUM[level], FALCON[level], FALCON[level], DILITHIUM[level], FALCON[level])
+        Experiment(
+            "sign",
+            level,
+            KYBER[level],
+            DILITHIUM[level],
+            FALCON[level],
+            FALCON[level],
+            DILITHIUM[level],
+            FALCON[level],
+        )
         for level in LEVELS
     ),
     # KSxXX + KDXX
@@ -246,23 +266,39 @@ ALGORITHMS: set[Experiment] = {
     ),
     # KSxXXSxX + KDXXDX
     *(
-        Experiment("sign", level, KYBER[level], sig, XMSS[level], XMSS[level], sig, XMSS[level])
+        Experiment(
+            "sign", level, KYBER[level], sig, XMSS[level], XMSS[level], sig, XMSS[level]
+        )
         for level in LEVELS
         for sig in [*SPHINCS[level], DILITHIUM[level]]
     ),
     # HDDD
     *(
-        Experiment("sign", level, HQC[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level])
+        Experiment(
+            "sign",
+            level,
+            HQC[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+        )
         for level in LEVELS
     ),
     # HDDDDD
     *(
-        Experiment("sign", level, HQC[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level], DILITHIUM[level])
+        Experiment(
+            "sign",
+            level,
+            HQC[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+        )
         for level in LEVELS
     ),
-
     ## KEMTLS
-
     # KKDD + KKFF + KKSxSx + KKXX
     *(
         Experiment("kemtls", level, KYBER[level], KYBER[level], sig, sig)
@@ -271,37 +307,112 @@ ALGORITHMS: set[Experiment] = {
     ),
     # KKDDKD + KKFFKF + KKSxSxKSx + KKXXKX
     *(
-        Experiment("kemtls", level, KYBER[level], KYBER[level], sig, sig, KYBER[level], sig)
+        Experiment(
+            "kemtls", level, KYBER[level], KYBER[level], sig, sig, KYBER[level], sig
+        )
         for level in LEVELS
         for sig in {DILITHIUM[level], FALCON[level], *SPHINCS[level], XMSS[level]}
     ),
-    *(Experiment("kemtls", level, HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level]) for level in LEVELS),
-    *(Experiment("kemtls", level, HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level], HQC[level], DILITHIUM[level]) for level in LEVELS),
-
+    *(
+        Experiment(
+            "kemtls", level, HQC[level], HQC[level], DILITHIUM[level], DILITHIUM[level]
+        )
+        for level in LEVELS
+    ),
+    *(
+        Experiment(
+            "kemtls",
+            level,
+            HQC[level],
+            HQC[level],
+            DILITHIUM[level],
+            DILITHIUM[level],
+            HQC[level],
+            DILITHIUM[level],
+        )
+        for level in LEVELS
+    ),
     ## PDK
-
     ## KK + HH
-    *(Experiment("pdk", level, kem, kem) for level in LEVELS for kem in [KYBER[level], HQC[level]]),
+    *(
+        Experiment("pdk", level, kem, kem)
+        for level in LEVELS
+        for kem in [KYBER[level], HQC[level]]
+    ),
     ## KK-KD + HH-HD
-    *(Experiment("pdk", level, kem, kem, client_auth=kem, client_ca=DILITHIUM[level]) for level in LEVELS for kem in [KYBER[level], HQC[level]]),
+    *(
+        Experiment("pdk", level, kem, kem, client_auth=kem, client_ca=DILITHIUM[level])
+        for level in LEVELS
+        for kem in [KYBER[level], HQC[level]]
+    ),
     # Mceliece + K
-    *(Experiment("pdk", level, KYBER[level], kem) for level in LEVELS for kem in MCELIECES[level]),
+    *(
+        Experiment("pdk", level, KYBER[level], kem)
+        for level in LEVELS
+        for kem in MCELIECES[level]
+    ),
     # McEliece + K + KD
-    *(Experiment("pdk", level, KYBER[level], kem, client_auth=KYBER[level], client_ca=DILITHIUM[level]) for level in LEVELS for kem in MCELIECES[level]),
+    *(
+        Experiment(
+            "pdk",
+            level,
+            KYBER[level],
+            kem,
+            client_auth=KYBER[level],
+            client_ca=DILITHIUM[level],
+        )
+        for level in LEVELS
+        for kem in MCELIECES[level]
+    ),
+    # Sign-cached
+    *(
+        Experiment("sign-cached", level, kem, sig)
+        for level in LEVELS
+        for kem in [KYBER[level], HQC[level]]
+        for sig in [DILITHIUM[level], FALCON[level]]
+    ),
+    *(
+        Experiment("sign-cached", level, kem, sig, client_auth=sig, client_ca=sig)
+        for level in LEVELS
+        for kem in [KYBER[level], HQC[level]]
+        for sig in [DILITHIUM[level], FALCON[level]]
+    ),
 }
 
 BIG_LIST: set[Experiment] = {
     Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048"),
-    Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment(
+        "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
+    ),
     # KEMTLS paper
     #  PQ Signed KEX
-    *(Experiment("sign", level, kem, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(
+        Experiment("sign", level, kem, sig, sig, sig)
+        for level in LEVELS
+        for kem in KEMS[level]
+        for sig in SIGS[level]
+    ),
     #  PQ Signed KEX with XMSS roots
-    *(Experiment("sign", level, kem, sig, XMSS[level], XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(
+        Experiment("sign", level, kem, sig, XMSS[level], XMSS[level])
+        for level in LEVELS
+        for kem in KEMS[level]
+        for sig in SIGS[level]
+    ),
     ## Mutually authenticated
-    *(Experiment("sign", level, kem, sig, sig, sig, sig, sig) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(
+        Experiment("sign", level, kem, sig, sig, sig, sig, sig)
+        for level in LEVELS
+        for kem in KEMS[level]
+        for sig in SIGS[level]
+    ),
     #  PQ Signed KEX with XMSS roots
-    *(Experiment("sign", level, kem, sig, XMSS[level], XMSS[level], sig, XMSS[level]) for level in LEVELS for kem in KEMS[level] for sig in SIGS[level]),
+    *(
+        Experiment("sign", level, kem, sig, XMSS[level], XMSS[level], sig, XMSS[level])
+        for level in LEVELS
+        for kem in KEMS[level]
+        for sig in SIGS[level]
+    ),
     #  TLS with cached certs + client auth
     *(
         Experiment("sign-cached", level, kex, sig, client_auth=sig, client_ca=sig)
@@ -421,9 +532,8 @@ def __validate_experiments() -> None:
         assert (
             kex in known_kexes
         ), f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
-        assert (
-            (leaf in known_kexes and type in ('kemtls', 'pdk'))
-            or (leaf in known_sigs and type not in ('kemtls', 'pdk'))
+        assert (leaf in known_kexes and type in ("kemtls", "pdk")) or (
+            leaf in known_sigs and type not in ("kemtls", "pdk")
         ), f"{leaf} is not a known algorithm for hs authentication with {type}"
         assert (
             int is None or int in known_sigs
@@ -433,8 +543,8 @@ def __validate_experiments() -> None:
         ), f"{root} is not a known signature algorithm"
         assert (
             client_auth is None
-            or (client_auth in known_sigs and type not in ('kemtls', 'pdk'))
-            or (client_auth in known_kexes and type in ('kemtls', 'pdk'))
+            or (client_auth in known_sigs and type not in ("kemtls", "pdk"))
+            or (client_auth in known_kexes and type in ("kemtls", "pdk"))
         ), f"{client_auth} is not a known signature algorith or KEM for {type}"
         assert (
             client_ca is None or client_ca in known_sigs
@@ -805,7 +915,9 @@ def run_measurement(
     output_queue.put(output)
 
 
-def experiment_run_timers(experiment: Experiment, cached_int: bool, latency: float) -> ExperimentOutput:
+def experiment_run_timers(
+    experiment: Experiment, cached_int: bool, latency: float
+) -> ExperimentOutput:
     path = get_experiment_path(experiment)
     tasks = [(port, experiment, cached_int, latency) for port in SERVER_PORTS]
     output_queue: multiprocessing.Queue[ExperimentOutput] = multiprocessing.Queue()
@@ -1063,7 +1175,9 @@ def main():
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
-                result.append(experiment_run_timers(experiment, int_only, float(rtt_ms)))
+                result.append(
+                    experiment_run_timers(experiment, int_only, float(rtt_ms))
+                )
             duration = datetime.datetime.utcnow() - start_time
             num_results = sum(len(r[2]) for r in result)
             logger.info("took %s to collect %d results", duration, num_results)
