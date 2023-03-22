@@ -381,7 +381,7 @@ ALGORITHMS: set[Experiment] = {
     ),
     *(
         Experiment("optls", "n/a", nike, nike, "Dilithium2", "Dilithium2", keygen_cache=cached)
-        for nike in ["CTIDH512"]
+        for nike in ["CTIDH512", "CTIDH1024"]
         for cached in [True, False]
     ),
 }
