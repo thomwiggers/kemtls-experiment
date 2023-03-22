@@ -379,6 +379,11 @@ ALGORITHMS: set[Experiment] = {
         for kem in [KYBER[level], HQC[level]]
         for sig in [DILITHIUM[level], FALCON[level]]
     ),
+    *(
+        Experiment("optls", "n/a", nike, nike, "Dilithium2", "Dilithium2", keygen_cache=cached)
+        for nike in ["CTIDH512"]
+        for cached in [True, False]
+    ),
 }
 
 BIG_LIST: set[Experiment] = {
@@ -534,8 +539,8 @@ def __validate_experiments() -> None:
         assert (
             kex in known_kexes
         ), f"{kex} is not a known KEM (not in {' '.join(known_kexes)})"
-        assert (leaf in known_kexes and type in ("kemtls", "pdk")) or (
-            leaf in known_sigs and type not in ("kemtls", "pdk")
+        assert (leaf in known_kexes and type in ("kemtls", "pdk", "optls")) or (
+            leaf in known_sigs and type not in ("kemtls", "pdk", "optls")
         ), f"{leaf} is not a known algorithm for hs authentication with {type}"
         assert (
             int is None or int in known_sigs

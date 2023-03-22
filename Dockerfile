@@ -26,8 +26,9 @@ ENV RUST_MIN_STACK "20971520"
 # Copy in the source
 COPY mk-cert /usr/src/pqtls/mk-cert
 
-# cleanup
+# Cleanup mk-cert and install deps
 WORKDIR /usr/src/pqtls/mk-cert
+RUN pipenv install
 RUN ./clean.sh
 
 # populate cargo build caches
@@ -39,7 +40,7 @@ RUN cargo build --release --examples
 WORKDIR /usr/src/pqtls/mk-cert/kemutil
 RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
 RUN cargo update
-RUN cargo build --release
+RUN cargo build --release --features oqs
 
 COPY secsidh    /usr/src/pqtls
 COPY secsidh-rs /usr/src/pqtls/secsidh-rs
@@ -58,15 +59,6 @@ COPY rustls  /usr/src/pqtls/rustls
 
 # Generate rustls build cache
 WORKDIR /usr/src/pqtls/rustls/rustls-mio
-RUN cargo build --release --examples
-
-# Set up certificates (will be parameterised by the env vars)
-WORKDIR  /usr/src/pqtls/mk-cert
-RUN pipenv install
-# Precompile kemutil and signutil for build caches
-WORKDIR /usr/src/pqtls/mk-cert/kemutil
-RUN cargo build --release
-WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN cargo build --release --examples
 
 # pre-Compile tlsserver and tlsclient examples
