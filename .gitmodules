@@ -15,3 +15,6 @@
 [submodule "oqs-rs"]
 	path = oqs-rs
 	url = https://github.com/thomwiggers/liboqs-rust.git
+[submodule "secsidh"]
+	path = secsidh
+	url = https://github.com/kemtls-secsidh/secsidh.git

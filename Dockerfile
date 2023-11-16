@@ -45,9 +45,9 @@ RUN cargo build --release --features oqs
 COPY secsidh    /usr/src/pqtls
 COPY secsidh-rs /usr/src/pqtls/secsidh-rs
 WORKDIR /usr/src/pqtls/mk-cert/csidhutil
-RUN echo "pub use secsidh::csidh2047k221 as csidh;" > src/instance.rs
+RUN echo "pub use csidh_rust::ctidh512 as csidh;" > src/instance.rs
 RUN cargo update
-RUN cargo build --release
+RUN cargo build --features csidh-rust --release
 
 WORKDIR /usr/src/pqtls/mk-cert/xmss-rs
 RUN cargo build --release

@@ -14,19 +14,26 @@ from typing import Any, Literal, Optional, Union, cast
 
 from experiment import ALGORITHMS, Experiment
 
+BASEPATH = Path(__file__).parent.absolute().parent
 
-DATAPATH = Path(__file__).parent.absolute().parent / "data"
-PROCESSED_PATH = DATAPATH / ".." / "processed"
+DATAPATH = BASEPATH / "data"
+PROCESSED_PATH = BASEPATH / "processed"
 
 
 #: Renames for the key exchange
 KEX_RENAMES: dict[str, str] = {
     "X25519": "E",
     "Kyber768": "Kiii",
+    "Dilithium3": "Diii",
     "Falcon1024": "Fv",
     "SikeP434Compressed": "Sc",
-    "CSIDH2047K221": "Cs",
-    "CTIDH2047K221": "Ct",
+    "CTIDH512": "Ctfivetwelve",
+    "CTIDH1024": "Cttentwentyfour",
+    "CSIDH2047M1L226": "Cs",
+    "CTIDH2047M1L226": "Ct",
+    "CSIDH4095M27L262": "CsIc",
+    "CTIDH4095M27L262": "CtIc",
+    "CTIDH5119M46L244": "CtIIf",
 }
 
 SIG_RENAMES: dict[str, str] = {
@@ -118,6 +125,7 @@ def get_averages(filename: Union[str, Path]) -> tuple[dict[str, float], int]:
     for key in sums.keys():
         results[key] = round(statistics.mean(sums[key]), 3)
         results[f"{key} stdev"] = round(statistics.stdev(sums[key]), 3)
+        results[f"{key} var%"] = round(statistics.stdev(sums[key])/statistics.mean(sums[key])*100, 3)
     assert key is not None
 
     return (results, len(sums[key]))
@@ -282,18 +290,20 @@ def write_averages(experiments):
             assert (name, avgs["rtt"]) not in names, f"Already seen {name}"
             names.add(name)
 
-            print(f"{name}: Server reply: {avgs['client received server reply']}")
-            print(f"{name}: Server done: {avgs['server handshake completed']}")
-            writer.writerow(avgs)
+            print(f"{name}: {avgs['rtt']} Server reply: {avgs['client received server reply']:0.1f} (+- {avgs['client received server reply var%']:0.1f})")
+            print(f"{name}: {avgs['rtt']} Server done: {avgs['server handshake completed']:0.1f}")
+            writer.writerow({key: val for key, val in avgs.items() if "%" not in key})
             format_results_tex(avgs)
 
     lua_table = dict()
     for avgs in avgses:
         item = lua_table
-        for key_item in ("type", "rtt", "kex", "leaf", "int", "root", "clauth", "clca"):
+        for key_item in ("type", "rtt", "kex", "leaf", "int", "root", "clauth", "clca", "keycache"):
             key = avgs[key_item] or "none"
             if key_item == "rtt":
                 key = f"{float(key):0.1f}"
+            elif key_item == "keycache":
+                key = "true" if avgs[key_item] else "false"
             if key not in item:
                 item[key] = {}
             item = item[key]
@@ -302,6 +312,9 @@ def write_averages(experiments):
                 val = avgs[key_item]
                 assert isinstance(val, (int, float))
                 item[key_item] = val / 1000
+            elif key_item == "measurements":
+                val = avgs[key_item]
+                item[key_item] = val
 
     with open(PROCESSED_PATH / "avgs.lua", "w") as luafile:
         luafile.write("measurement_results=")
@@ -408,7 +421,7 @@ def produce_experiment_list():
             if (a := getattr(experiment, attr)) is not None:
                 alg[attr] = a
         algs.append(alg)
-    with Path(DATAPATH / ".." / "processed" / "experiments.json").open("w") as fh:
+    with Path(BASEPATH / "processed" / "experiments.json").open("w") as fh:
         json.dump(algs, fh, indent=2)
 
 

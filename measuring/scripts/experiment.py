@@ -32,6 +32,8 @@ from typing import (
 ## SETTTINGS ######################################################################################
 ###################################################################################################
 
+SECSIDH_PAPER = True
+
 # Original set of latencies
 # LATENCIES = ['2.684ms', '15.458ms', '39.224ms', '97.73ms']
 # LATENCIES = ["2.0ms"]
@@ -39,21 +41,29 @@ LATENCIES: Final[list[str]] = [
     "15.458ms",
     "97.73ms",
 ]  # ['2.684ms', '15.458ms', '97.73ms']  #['15.458ms', '97.73ms']
-LOSS_RATES: Final[list[int]] = [
-    0
-]  # [ 0.1, 0.5, 1, 1.5, 2, 2.5, 3] + list(range(4, 21)):
-NUM_PINGS: Final[int] = 10  # for measuring the practical latency
-# SPEEDS = [1000, 10]
+#: Loss rates are too annoying to include
+LOSS_RATES: Final[list[int]] = [0]
+#: Number of pings used for measuring latency
+NUM_PINGS: Final[int] = 20  # for measuring the practical latency
+#: Link speeds to use in experiments
 SPEEDS: Final[list[int]] = [1000, 10]
 
-# xvzcf's experiment used POOL_SIZE = 40
-# We start as many servers as clients, so make sure to adjust accordingly
+
 START_PORT: Final[int] = 10000
-POOL_SIZE: Final[int] = 40
-ITERATIONS: Final[int] = 1
-# Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
-MEASUREMENTS_PER_ITERATION: Final[int] = 20
-MEASUREMENTS_PER_CLIENT: Final[int] = 20
+
+if not SECSIDH_PAPER:
+    # xvzcf's experiment used POOL_SIZE = 40
+    # We start as many servers as clients, so make sure to adjust accordingly
+    POOL_SIZE: int = 40
+    ITERATIONS: int = 1
+    # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
+    MEASUREMENTS_PER_ITERATION: int = 500
+    MEASUREMENTS_PER_CLIENT: int = 500
+else:
+    POOL_SIZE: int = 80
+    ITERATIONS: int = 10
+    MEASUREMENTS_PER_ITERATION: int = 10
+    MEASUREMENTS_PER_CLIENT: int = 10
 
 ###################################################################################################
 
@@ -380,8 +390,40 @@ ALGORITHMS: set[Experiment] = {
         for sig in [DILITHIUM[level], FALCON[level]]
     ),
     *(
-        Experiment("optls", "n/a", nike, nike, "Dilithium2", "Dilithium2", keygen_cache=cached)
-        for nike in ["CTIDH512", "CTIDH1024"]
+        Experiment("optls", "n/a", nike, nike, "Falcon512", "Falcon512", keygen_cache=cached)
+        for nike in [
+            "CTIDH512",
+            "CTIDH1024",
+    #         "CSIDH2047M1L226",
+    #         "CTIDH2047M1L226",
+    #         "CSIDH4095M27L262",
+    #         "CTIDH4095M27L262",
+    #         "CTIDH5119M46L244",
+        ]
+        for cached in [True, False]
+    ),
+}
+
+if SECSIDH_PAPER:
+# Selection for secsidh paper
+    ALGORITHMS = {
+        Experiment("sign", 1, "Kyber512", "Falcon512", "Falcon512"),
+        Experiment("sign", 1, "Kyber512", "Dilithium2", "Falcon512"),
+        Experiment("sign", 3, "Kyber768", "Falcon1024", "Falcon512"),
+        Experiment("sign", 3, "Kyber768", "Dilithium3", "Falcon512"),
+        Experiment("kemtls", 1, "Kyber512", "Kyber512", "Falcon512"),
+        Experiment("kemtls", 3, "Kyber768", "Kyber768", "Falcon512"),
+        *(
+            Experiment("optls", "n/a", nike, nike, "Falcon512", "Falcon512", keygen_cache=cached)
+            for nike in [
+                "CTIDH512",
+                "CTIDH1024",
+                "CSIDH2047M1L226",
+                "CSIDH4095M27L262",
+                "CTIDH2047M1L226",
+                "CTIDH4095M27L262",
+                "CTIDH5119M46L244",
+            ]
         for cached in [True, False]
     ),
 }
@@ -517,15 +559,15 @@ BIG_LIST: set[Experiment] = {
     *(
         Experiment("optls", 1, alg, alg, "Falcon512", "Falcon512", keygen_cache=True)
         for alg in (
-            "CSIDH2047K221",
-            "CTIDH2047K221",
+            "CSIDH2047M1L226",
+            "CTIDH2047M1L226",
         )
     ),
     *(
         Experiment("optls", 1, alg, "Falcon512", "Falcon512", keygen_cache=False)
         for alg in (
-            "CSIDH2047K221",
-            "CTIDH2047K221",
+            "CSIDH2047M1L226",
+            "CTIDH2047M1L226",
         )
     ),
 }
@@ -768,7 +810,7 @@ class ServerProcess(multiprocessing.Process):
 def expected_timeout(experiment: Experiment, latency: float) -> int:
     expected_measurement_time: int = 5
     if experiment.type == "optls":
-        expected_measurement_time = 200
+        expected_measurement_time = 300
     elif "SphincsSha2256fSimple" in experiment:
         expected_measurement_time = 10
 
@@ -872,6 +914,7 @@ def run_measurement(
                 timeout=expected_timeout(experiment, latency),
                 check=False,
                 cwd=path,
+                bufsize=8192*1024,
             )
         except subprocess.TimeoutExpired:
             logger.exception("Sever has hung itself, restarting measurements")
@@ -1182,6 +1225,8 @@ def main():
             )
             start_time = datetime.datetime.utcnow()
             for _ in range(ITERATIONS):
+                logger.debug("Taking a 2-second nap for the OS to settle")
+                time.sleep(2)
                 result.append(
                     experiment_run_timers(experiment, int_only, float(rtt_ms))
                 )
@@ -1255,6 +1300,8 @@ if __name__ == "__main__":
             sum(1 for alg in ALGORITHMS if alg[0] == "sign-cached")
         )
     )
+
+    logger.info("Will attempt to collect %d measurements per experiment", POOL_SIZE * ITERATIONS * MEASUREMENTS_PER_ITERATION)
 
     setup_experiments()
     hostname = reverse_resolve_hostname()
