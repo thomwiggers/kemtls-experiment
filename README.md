@@ -6,6 +6,8 @@ This repository accompanies
 * Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** ACM CCS 2020.
 * Peter Schwabe, Douglas Stebila and Thom Wiggers. **More efficient KEMTLS with pre-distributed public keys.** IACR Cryptology ePrint Archive, Report 2021/779. Updated online version. March 2022.
 * Peter Schwabe, Douglas Stebila and Thom Wiggers. **Post-quantum TLS without handshake signatures.** IACR Cryptology ePrint Archive, Report 2020/534. Updated online version. March 2022.
+* Fabio Campos, Jorge Chavez-Saab, Jesús-Javier Chi-Domínguez, Michael Meyer, Krijn Reijnders, Francisco Rodríguez-Henríquez, Peter Schwabe, Thom Wiggers. **Optimizations and Practicality of High-Security CSIDH.** IACR Cryptology ePrint Archive, Report 2023/793. October 2023.
+* Thom Wiggers. **Post-Quantum TLS**. PhD thesis, January 2024.
 
 ```bibtex
 @inproceedings{CCS:SchSteWig20,
@@ -52,12 +54,29 @@ This repository accompanies
 
 @misc{EPRINT:SchSteWig21,
       author = {Peter Schwabe and Douglas Stebila and Thom Wiggers},
-      title = {More efficient post-quantum KEMTLS with pre-distributed public keys},
+      title = {More efficient post-quantum {KEMTLS} with pre-distributed public keys},
       howpublished = {Cryptology ePrint Archive, Paper 2021/779},
       year = {2022},
       month = mar,
       note = {full online version},
       url = {https://eprint.iacr.org/2021/779}
+}
+
+@misc{EPRINT:CCCMRRSW23,
+      author = {Fabio Campos and Jorge Chavez-Saab and Jesús-Javier Chi-Domínguez and Michael Meyer and Krijn Reijnders and Francisco Rodríguez-Henríquez and Peter Schwabe and Thom Wiggers},
+      title = {Optimizations and Practicality of High-Security {CSIDH}},
+      howpublished = {Cryptology ePrint Archive, Paper 2023/793},
+      year = {2023},
+      url = {https://eprint.iacr.org/2023/793}
+}
+
+@phdthesis{RU:Wiggers24,
+    title = {Post-Quantum {TLS}},
+    author = {Thom Wiggers},
+    date = {2024-01-09},
+    school = {Radboud University},
+    address = {Nijmegen, The Netherlands},
+    url = {https://thomwiggers.nl/publication/thesis/}
 }
 
 ```
