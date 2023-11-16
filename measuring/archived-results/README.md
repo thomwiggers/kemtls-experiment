@@ -13,3 +13,7 @@ Execute the `download.sh` script.
 ## Uploading new results
 
 Thom has the keys for the S3 bucket, he can upload results.
+
+## Long-term access
+
+This repository is archived with Zenodo, and the archive files should also be there.

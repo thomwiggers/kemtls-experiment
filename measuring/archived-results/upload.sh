@@ -4,7 +4,7 @@
 
 BUCKET=kemtls
 
-existing_files=$(aws s3 ls s3://$BUCKET/archived-results/ | grep -o "data-.*.tar.*")
+existing_files=$(aws s3 ls s3://$BUCKET/archived-results/ | grep -o ".*data-.*.tar.*")
 
 echo "#!/bin/sh" > ./download.sh
 
