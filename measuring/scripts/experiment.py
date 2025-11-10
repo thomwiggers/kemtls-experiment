@@ -234,6 +234,10 @@ ALGORITHMS: set[Experiment] = {
     Experiment(
         "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
     ),
+    # Kyber-only experiments
+    *(
+        Experiment("sign", level, KYBER[level], "RSA2048", "RSA2048", "RSA2048") for level in LEVELS
+    ),
     # PQ experiments
     # KDDD & KFFF + KSfSfSf + KSsSsSs
     *(
