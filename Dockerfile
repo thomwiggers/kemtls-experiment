@@ -34,19 +34,16 @@ RUN ./clean.sh
 # populate cargo build caches
 WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN echo "pub use oqs::sig::Algorithm::Dilithium2 as alg;" > src/lib.rs
-RUN cargo update
 RUN cargo build --release --examples
 
 WORKDIR /usr/src/pqtls/mk-cert/kemutil
 RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
-RUN cargo update
 RUN cargo build --release --features oqs
 
 COPY secsidh    /usr/src/pqtls
 COPY secsidh-rs /usr/src/pqtls/secsidh-rs
 WORKDIR /usr/src/pqtls/mk-cert/csidhutil
 RUN echo "pub use csidh_rust::ctidh512 as csidh;" > src/instance.rs
-RUN cargo update
 RUN cargo build --features csidh-rust --release
 
 WORKDIR /usr/src/pqtls/mk-cert/xmss-rs

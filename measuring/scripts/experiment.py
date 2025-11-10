@@ -652,7 +652,7 @@ def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> Non
             ns,
             "tc",
             "qdisc",
-            "change",
+            "add",
             "dev",
             dev,
             "root",
@@ -672,7 +672,7 @@ def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> Non
             ns,
             "tc",
             "qdisc",
-            "change",
+            "add",
             "dev",
             dev,
             "root",
@@ -687,6 +687,13 @@ def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> Non
             f"{rate}mbit",
         ]
 
+    del_command = f"ip netns exec {ns} tc qdesc del dev {dev} root"
+
+    logger.debug(" > " + " ".join(del_command))
+    try:
+        run_subprocess(del_command)
+    except:
+        pass
     logger.debug(" > " + " ".join(command))
     run_subprocess(command)
 
