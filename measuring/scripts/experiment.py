@@ -687,12 +687,13 @@ def change_qdisc(ns: str, dev: str, pkt_loss: int, delay: str, rate=1000) -> Non
             f"{rate}mbit",
         ]
 
-    del_command = f"ip netns exec {ns} tc qdesc del dev {dev} root"
+    del_command = f"ip netns exec {ns} tc qdisc del dev {dev} root".split()
 
     logger.debug(" > " + " ".join(del_command))
     try:
         run_subprocess(del_command)
     except:
+        logger.exception("Couldn't clean up qdisc")
         pass
     logger.debug(" > " + " ".join(command))
     run_subprocess(command)

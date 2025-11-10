@@ -1,19 +1,15 @@
 # Author: Thom Wiggers <thom@thomwiggers.nl>
 # LICENSE: CC0
 #
-FROM rust:1.66-bullseye AS builder
+FROM rust:1.91-trixie AS builder
 
 SHELL ["/bin/bash", "-c"]
 
 EXPOSE 8443 443/tcp
 
-ADD https://apt.llvm.org/llvm-snapshot.gpg.key /llvm.key
-RUN apt-key add /llvm.key
-
 # Install requirements
-RUN echo "deb http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-12 main" > /etc/apt/sources.list.d/llvm.list
 RUN apt-get update  -qq
-RUN apt-get install -qq -y pipenv libssl-dev cmake clang-12 llvm-12
+RUN apt-get install -qq -y pipenv libssl-dev cmake clang llvm
 
 # Default C compiler
 # XXX: Somehow clang breaks.
