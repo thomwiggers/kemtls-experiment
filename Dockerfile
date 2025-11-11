@@ -91,12 +91,7 @@ WORKDIR  /usr/src/pqtls/mk-cert
 RUN      pipenv run python encoder.py
 
 # Set up clean environment
-FROM debian:bullseye
-
-# Install libssl1.1
-RUN apt-get update -qq \
- && apt-get install -qq -y libssl1.1 \
- && rm -rf /var/cache/apt
+FROM debian:trixie
 
 COPY --from=builder /usr/src/pqtls/rustls/target/release/examples/tlsserver /usr/local/bin/tlsserver
 COPY --from=builder /usr/src/pqtls/rustls/target/release/examples/tlsclient /usr/local/bin/tlsclient
