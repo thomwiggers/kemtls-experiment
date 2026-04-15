@@ -28,8 +28,8 @@ pushd rustls/test-ca
 
 for dir in kyber dilithium; do
     pushd $dir
-    bash cp_from_mkcert.sh
-    git add .
+    echo bash cp_from_mkcert.sh
+    echo git add .
     popd
 done
 

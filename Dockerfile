@@ -27,6 +27,8 @@ WORKDIR /usr/src/pqtls/mk-cert
 RUN pipenv install
 RUN ./clean.sh
 
+COPY oqs-rs /usr/src/pqtls/oqs-rs
+
 # populate cargo build caches
 WORKDIR /usr/src/pqtls/mk-cert/signutil
 RUN echo "pub use oqs::sig::Algorithm::Dilithium2 as alg;" > src/lib.rs
@@ -36,8 +38,7 @@ WORKDIR /usr/src/pqtls/mk-cert/kemutil
 RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
 RUN cargo build --release --features oqs
 
-COPY secsidh    /usr/src/pqtls
-COPY secsidh-rs /usr/src/pqtls/secsidh-rs
+COPY secsidh    /usr/src/pqtls/secsidh
 WORKDIR /usr/src/pqtls/mk-cert/csidhutil
 RUN echo "pub use csidh_rust::ctidh512 as csidh;" > src/instance.rs
 RUN cargo build --features csidh-rust --release
@@ -52,6 +53,7 @@ COPY rustls  /usr/src/pqtls/rustls
 
 # Generate rustls build cache
 WORKDIR /usr/src/pqtls/rustls/rustls-mio
+RUN ls /usr/src/pqtls/secsidh/secsidh-rs/secsidh
 RUN cargo build --release --examples
 
 # pre-Compile tlsserver and tlsclient examples

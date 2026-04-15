@@ -76,28 +76,28 @@ def get_experiment_name(experiment: dict[str, Any]) -> str:
         assert experiment["type"] == "sign", f"{experiment['type']} unknown"
         type = "sig"
 
-    kex = KEX_RENAMES.get(kex, kex[0].upper())
-    leaf = AUTH_RENAMES.get(leaf, leaf[0].upper())
-    if inter is not None and type not in ("pdk", "sigcache"):
-        inter = SIG_RENAMES.get(inter, inter[0].upper())
-    elif inter is None or type in ("pdk", "sigcache"):
+    #kex = KEX_RENAMES.get(kex, kex[0].upper())
+    #leaf = AUTH_RENAMES.get(leaf, leaf[0].upper())
+    #if inter is not None and type not in ("pdk", "sigcache"):
+    #    inter = SIG_RENAMES.get(inter, inter[0].upper())
+    if inter is None or type in ("pdk", "sigcache"):
         inter = ""
-    if root is not None and type != "pdk":
-        root = SIG_RENAMES.get(root, root[0].upper())
+    #if root is not None and type != "pdk":
+    #    root = SIG_RENAMES.get(root, root[0].upper())
     elif root is None or type == "pdk":
         root = ""
 
     authpart = ""
     if clauth is not None:
-        clauth = AUTH_RENAMES.get(clauth, clauth[0].upper())
-        clca = SIG_RENAMES.get(clca, clca[0].upper())
+        #clauth = AUTH_RENAMES.get(clauth, clauth[0].upper())
+        #clca = SIG_RENAMES.get(clca, clca[0].upper())
         authpart = f"auth{clauth}{clca}"
 
     keycache = ""
     if experiment["keycache"]:
         keycache = "keycache"
 
-    return f"{type}{kex}{leaf}{inter}{root}{authpart}{keycache}"
+    return f"{type} {kex} {leaf} {inter} {root} {authpart} {keycache}".replace("  ", " ").strip()
 
 
 def read_csv_lines(filename):
@@ -217,12 +217,12 @@ def format_results_tex(avgs: dict[str, Any]):
     loss: str = avgs["drop_rate"]
     rate: str = avgs["rate"]
 
-    macro_name_base = "res" + ("slow" if latency > 50 else "fast") + avgs["name"]
+    macro_name_base = "res " + ("slow" if latency > 50 else "fast") + " " + avgs["name"]
 
     def macro(name, number):
         number = "%0.1f" % (number / 1000)
         return (
-            fr"\newcommand{{\{macro_name_base}{name}}}{{{number}}}  % {avgs['filename']}"
+            fr"\csdef{{{macro_name_base} {name}}}{{{number}}}  % {avgs['filename']}"
             "\n"
         )
 

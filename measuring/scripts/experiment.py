@@ -44,7 +44,7 @@ LATENCIES: Final[list[str]] = [
 #: Loss rates are too annoying to include
 LOSS_RATES: Final[list[int]] = [0]
 #: Number of pings used for measuring latency
-NUM_PINGS: Final[int] = 20  # for measuring the practical latency
+NUM_PINGS: Final[int] = 5  # for measuring the practical latency
 #: Link speeds to use in experiments
 SPEEDS: Final[list[int]] = [1000, 10]
 
@@ -54,14 +54,14 @@ START_PORT: Final[int] = 10000
 if not SECSIDH_PAPER:
     # xvzcf's experiment used POOL_SIZE = 40
     # We start as many servers as clients, so make sure to adjust accordingly
-    POOL_SIZE: int = 40
+    POOL_SIZE: int = 96//2
     ITERATIONS: int = 1
     # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
     MEASUREMENTS_PER_ITERATION: int = 500
     MEASUREMENTS_PER_CLIENT: int = 500
 else:
-    POOL_SIZE: int = 80
-    ITERATIONS: int = 10
+    POOL_SIZE: int = 10
+    ITERATIONS: int = 1
     MEASUREMENTS_PER_ITERATION: int = 10
     MEASUREMENTS_PER_CLIENT: int = 10
 
@@ -162,6 +162,10 @@ FRODOS = [
     for alg in ("aes", "shake")
 ]
 SMALLFRODOS = [frodo for frodo in FRODOS if "640" in frodo]
+MLKEMS = ["MlKem512", "MlKem768", "MlKem1024"]
+MLKEM = {1: MLKEMS[0], 3: MLKEMS[1], 5: MLKEMS[2]}
+HYBRIDS = ["X25519MLKEM768", "secp256r1MLKEM768", "secp384r1MLKEM1024"]
+HYBRID = {1: HYBRIDS[0], 3: HYBRIDS[1], 5: HYBRIDS[2]}
 KYBERS = ["Kyber512", "Kyber768", "Kyber1024"]
 KYBER = {1: "Kyber512", 3: "Kyber768", 5: "Kyber1024"}
 BIKES = ["BikeL1", "BikeL3"]  # NOTE: IND-CPA!
@@ -211,9 +215,9 @@ UOVS = {1: [], 3: [], 5: []}
 #     *SMALLFRODOS,
 # ]
 
-KEMSL1 = [KYBERS[0], BIKES[0], HQCS[0], *SMALLFRODOS]
-KEMSL3 = [KYBERS[1], BIKES[1], HQCS[1]]
-KEMSL5 = [KYBERS[2], HQCS[2]]
+KEMSL1 = [KYBERS[0], MLKEMS[0], BIKES[0], HQCS[0], *SMALLFRODOS]
+KEMSL3 = [KYBERS[1], MLKEMS[1], HYBRIDS[0], HYBRIDS[1], BIKES[1], HQCS[1]]
+KEMSL5 = [KYBERS[2], MLKEMS[2], HYBRIDS[2], HQCS[2]]
 
 LEVELS: list[NistLevel] = [1, 3, 5]
 KEMS = {1: KEMSL1, 3: KEMSL3, 5: KEMSL5}
@@ -231,13 +235,22 @@ ALGORITHMS: set[Experiment] = {
     # EXPERIMENT - KEX - LEAF - INT - ROOT - CLIENT AUTH - CLIENT CA
     # Smaller list of actually printed experiments
     Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048"),
-    Experiment(
-        "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
-    ),
+    Experiment("sign", "n/a", "secp256r1", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "n/a", "secp384r1", "RSA2048", "RSA2048", "RSA2048"),
+    #Experiment(
+    #    "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
+    #),
     # Kyber-only experiments
     *(
-        Experiment("sign", level, KYBER[level], "RSA2048", "RSA2048", "RSA2048") for level in LEVELS
+        Experiment("sign", level, MLKEM[level], "RSA2048", "RSA2048", "RSA2048") for level in LEVELS
     ),
+    # Hybrid
+    *(
+        Experiment("sign", 3 if hyb not in KEMSL5 else 5, hyb, "RSA2048", "RSA2048", "RSA2048") for hyb in HYBRIDS
+    ),
+
+}
+ex_ = {
     # PQ experiments
     # KDDD & KFFF + KSfSfSf + KSsSsSs
     *(
@@ -579,7 +592,7 @@ BIG_LIST: set[Experiment] = {
 # Validate choices
 def __validate_experiments() -> None:
     nikes: list[str] = [alg.upper() for alg in algorithms.nikes]
-    known_kexes: list[str] = [kem[1] for kem in algorithms.kems] + ["X25519"] + nikes
+    known_kexes: list[str] = [kem[1] for kem in algorithms.kems] + ["X25519", "secp256r1", "secp384r1"] + nikes + [hyb[1] for hyb in algorithms.hybrids]
     known_sigs: list[str] = [sig[1] for sig in algorithms.signs] + ["RSA2048"]
     for (type, _, kex, leaf, int, root, client_auth, client_ca, _) in ALGORITHMS:
         assert (
@@ -1186,7 +1199,7 @@ def main():
         rtt_ms = get_rtt_ms()
 
         for (experiment, int_only, pkt_loss) in itertools.product(
-            ALGORITHMS, [True, False], LOSS_RATES
+            ALGORITHMS, [False], LOSS_RATES
         ):
             if "INT_ONLY" in os.environ and not int_only:
                 continue
