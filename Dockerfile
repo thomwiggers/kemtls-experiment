@@ -9,7 +9,7 @@ EXPOSE 8443 443/tcp
 
 # Install requirements
 RUN apt-get update  -qq
-RUN apt-get install -qq -y pipenv libssl-dev cmake clang llvm
+RUN apt-get install -qq -y bash pipenv libssl-dev cmake clang llvm
 
 # Default C compiler
 # XXX: Somehow clang breaks.
@@ -26,6 +26,8 @@ COPY mk-cert /usr/src/pqtls/mk-cert
 WORKDIR /usr/src/pqtls/mk-cert
 RUN pipenv install
 RUN ./clean.sh
+RUN ./setup_rsa.sh && \
+	cd x25519 && ./signcert.sh
 
 COPY oqs-rs /usr/src/pqtls/oqs-rs
 

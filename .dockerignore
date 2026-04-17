@@ -14,3 +14,5 @@ mk-cert/tbs*
 measuring/*
 rustls/Cargo.lock
 webpki/Cargo.lock
+**/__pycache__/*
+*.pyc
