@@ -54,8 +54,8 @@ START_PORT: Final[int] = 10000
 if not SECSIDH_PAPER:
     # xvzcf's experiment used POOL_SIZE = 40
     # We start as many servers as clients, so make sure to adjust accordingly
-    POOL_SIZE: int = 96//2
-    ITERATIONS: int = 1
+    POOL_SIZE: int = os.cpu_count()//2
+    ITERATIONS: int = 2
     # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
     MEASUREMENTS_PER_ITERATION: int = 500
     MEASUREMENTS_PER_CLIENT: int = 500
@@ -1253,14 +1253,14 @@ def main():
                 pkt_loss,
                 rate,
             )
-            start_time = datetime.datetime.now(datetime.UTC)
+            start_time = datetime.datetime.now(datetime.timezone.utc)
             for _ in range(ITERATIONS):
                 logger.debug("Taking a 2-second nap for the OS to settle")
                 time.sleep(2)
                 result.append(
                     experiment_run_timers(experiment, int_only, float(rtt_ms))
                 )
-            duration = datetime.datetime.now(datetime.UTC) - start_time
+            duration = datetime.datetime.now(datetime.timezone.utc) - start_time
             num_results = sum(len(r[2]) for r in result)
             logger.info("took %s to collect %d results", duration, num_results)
             assert num_results > 0, "Invalid results?"
