@@ -31,11 +31,11 @@ COPY oqs-rs /usr/src/pqtls/oqs-rs
 
 # populate cargo build caches
 WORKDIR /usr/src/pqtls/mk-cert/signutil
-RUN echo "pub use oqs::sig::Algorithm::Dilithium2 as alg;" > src/lib.rs
+RUN echo "pub use oqs::sig::Algorithm::MlDsa44 as alg;" > src/lib.rs
 RUN cargo build --release --examples
 
 WORKDIR /usr/src/pqtls/mk-cert/kemutil
-RUN echo "pub use oqs::kem::Algorithm::Kyber512 as thealgorithm;" > src/kem.rs
+RUN echo "pub use oqs::kem::Algorithm::MlKem512 as thealgorithm;" > src/kem.rs
 RUN cargo build --release --features oqs
 
 COPY secsidh    /usr/src/pqtls/secsidh
@@ -63,7 +63,7 @@ RUN cargo build --release --example tlsserver && \
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from liboqs)
-ARG KEX_ALG="Kyber512"
+ARG KEX_ALG="MlKem512"
 # re-export build args as env vars
 ENV KEX_ALG     $KEX_ALG
 
@@ -77,11 +77,11 @@ RUN cargo build --release $RUSTLS_FEATURES --example tlsserver && \
 
 # These must exactly match what is listed in the options of mk-cert/encoder.py
 # (and those follow from liboqs)
-ARG ROOT_SIGALG="Dilithium2"
-ARG INT_SIGALG="Dilithium2"
-ARG LEAF_ALG="Dilithium2"
-ARG CLIENT_ALG="Kyber512"
-ARG CLIENT_CA_ALG="Dilithium2"
+ARG ROOT_SIGALG="MlDsa44"
+ARG INT_SIGALG="MlDsa44"
+ARG LEAF_ALG="MlDsa44"
+ARG CLIENT_ALG="MlKem512"
+ARG CLIENT_CA_ALG="MlDsa44"
 ENV ROOT_SIGALG   $ROOT_SIGALG
 ENV INT_SIGALG    $INT_SIGALG
 ENV LEAF_ALG      $LEAF_ALG

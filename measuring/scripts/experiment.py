@@ -181,6 +181,8 @@ MCELIECEL3 = [mc for mc in MCELIECES_ if "460896" in mc]
 MCELIECEL5 = [mc for mc in MCELIECES_ if mc not in (MCELIECEL1 + MCELIECEL3)]
 MCELIECES = {1: MCELIECEL1, 3: MCELIECEL3, 5: MCELIECEL5}
 
+MLDSA = {1: "MlDsa44", 3: "MlDsa65", 5: "MlDsa87"}
+MLDSAS = list(MLDSA.values())
 DILITHIUMS = ["Dilithium2", "Dilithium3", "Dilithium5"]
 # yes I know D2 is level 2, but this is how we map the experiments
 DILITHIUM = {1: "Dilithium2", 3: "Dilithium3", 5: "Dilithium5"}
@@ -224,9 +226,9 @@ KEMS = {1: KEMSL1, 3: KEMSL3, 5: KEMSL5}
 
 # SIGS: list[str] = [*DILITHIUMS, *FALCONS, *SPHINCSES]
 
-SIGSL1 = [DILITHIUMS[0], FALCONS[0], *SPHINCSESL1]
-SIGSL3 = [DILITHIUMS[1], FALCONS[1], *SPHINCSESL3]
-SIGSL5 = [DILITHIUMS[2], FALCONS[1], *SPHINCSESL5]
+SIGSL1 = [MLDSAS[0], FALCONS[0], *SPHINCSESL1]
+SIGSL3 = [MLDSAS[1], FALCONS[1], *SPHINCSESL3]
+SIGSL5 = [MLDSAS[2], FALCONS[1], *SPHINCSESL5]
 
 SIGS = {1: SIGSL1, 3: SIGSL3, 5: SIGSL5}
 
@@ -241,13 +243,16 @@ ALGORITHMS: set[Experiment] = {
     #    "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
     #),
     # Kyber-only experiments
+    #*(
+    #    Experiment("sign", level, MLKEM[level], "RSA2048", "RSA2048", "RSA2048") for level in LEVELS
+    #),
     *(
-        Experiment("sign", level, MLKEM[level], "RSA2048", "RSA2048", "RSA2048") for level in LEVELS
+        Experiment("sign", level, MLKEM[1], MLDSA[level], MLDSA[level], MLDSA[level]) for level in LEVELS
     ),
-    # Hybrid
-    *(
-        Experiment("sign", 3 if hyb not in KEMSL5 else 5, hyb, "RSA2048", "RSA2048", "RSA2048") for hyb in HYBRIDS
-    ),
+    ## Hybrid
+    #*(
+    #    Experiment("sign", 3 if hyb not in KEMSL5 else 5, hyb, "RSA2048", "RSA2048", "RSA2048") for hyb in HYBRIDS
+    #),
 
 }
 ex_ = {
