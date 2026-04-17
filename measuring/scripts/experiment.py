@@ -1253,14 +1253,14 @@ def main():
                 pkt_loss,
                 rate,
             )
-            start_time = datetime.datetime.utcnow()
+            start_time = datetime.datetime.now(datetime.UTC)
             for _ in range(ITERATIONS):
                 logger.debug("Taking a 2-second nap for the OS to settle")
                 time.sleep(2)
                 result.append(
                     experiment_run_timers(experiment, int_only, float(rtt_ms))
                 )
-            duration = datetime.datetime.utcnow() - start_time
+            duration = datetime.datetime.now(datetime.UTC) - start_time
             num_results = sum(len(r[2]) for r in result)
             logger.info("took %s to collect %d results", duration, num_results)
             assert num_results > 0, "Invalid results?"

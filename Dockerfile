@@ -16,8 +16,8 @@ RUN apt-get install -qq -y pipenv libssl-dev cmake clang llvm
 ENV CC=gcc
 
 # Rust options
-ENV RUSTFLAGS "-C target-cpu=native -C link-arg=-s"
-ENV RUST_MIN_STACK "20971520"
+ENV RUSTFLAGS="-C target-cpu=native -C link-arg=-s"
+ENV RUST_MIN_STACK="20971520"
 
 # Copy in the source
 COPY mk-cert /usr/src/pqtls/mk-cert
@@ -65,7 +65,7 @@ RUN cargo build --release --example tlsserver && \
 # (and those follow from liboqs)
 ARG KEX_ALG="MlKem512"
 # re-export build args as env vars
-ENV KEX_ALG     $KEX_ALG
+ENV KEX_ALG=$KEX_ALG
 
 # Update the KEX alg
 RUN sed -i 's@NamedGroup::[[:alnum:]]\+@NamedGroup::'${KEX_ALG}'@' /usr/src/pqtls/rustls/rustls/src/client/default_group.rs
@@ -82,11 +82,11 @@ ARG INT_SIGALG="MlDsa44"
 ARG LEAF_ALG="MlDsa44"
 ARG CLIENT_ALG="MlKem512"
 ARG CLIENT_CA_ALG="MlDsa44"
-ENV ROOT_SIGALG   $ROOT_SIGALG
-ENV INT_SIGALG    $INT_SIGALG
-ENV LEAF_ALG      $LEAF_ALG
-ENV CLIENT_ALG   $CLIENT_ALG
-ENV CLIENT_CA_ALG $CLIENT_CA_ALG
+ENV ROOT_SIGALG=$ROOT_SIGALG
+ENV INT_SIGALG=$INT_SIGALG
+ENV LEAF_ALG=$LEAF_ALG
+ENV CLIENT_ALG=$CLIENT_ALG
+ENV CLIENT_CA_ALG=$CLIENT_CA_ALG
 
 # actually generate the certificates
 WORKDIR  /usr/src/pqtls/mk-cert
@@ -102,4 +102,4 @@ COPY --from=builder /usr/src/pqtls/mk-cert/*.key /certs/
 COPY --from=builder /usr/src/pqtls/mk-cert/*.pub /certs/
 
 WORKDIR /certs
-CMD ["echo", "Run tls{server,client} for the rustls-mio server/client with KEX:", $KEX_ALG]
+CMD ["/bin/sh", "-c", "echo 'Run tls{server,client} for the rustls-mio server/client with KEX:' $KEX_ALG"]
