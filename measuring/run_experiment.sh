@@ -27,3 +27,4 @@ if command -v ntfy > /dev/null; then
 fi
 
 $ntfy sudo -E python3.9 -u scripts/experiment.py $@
+lscpu > data/lscpu.txt
