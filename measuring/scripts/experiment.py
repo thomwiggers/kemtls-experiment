@@ -239,6 +239,7 @@ ALGORITHMS: set[Experiment] = {
     Experiment("sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048"),
     Experiment("sign", "n/a", "secp256r1", "RSA2048", "RSA2048", "RSA2048"),
     Experiment("sign", "n/a", "secp384r1", "RSA2048", "RSA2048", "RSA2048"),
+    Experiment("sign", "n/a", MLKEMS[0], "RSA2048", "RSA2048", "RSA2048"),
     #Experiment(
     #    "sign", "n/a", "X25519", "RSA2048", "RSA2048", "RSA2048", "RSA2048", "RSA2048"
     #),
