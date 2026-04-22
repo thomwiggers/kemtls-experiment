@@ -53,7 +53,7 @@ START_PORT: Final[int] = 10000
 if not SECSIDH_PAPER:
     # xvzcf's experiment used POOL_SIZE = 40
     # We start as many servers as clients, so make sure to adjust accordingly
-    POOL_SIZE: int = 96//2
+    POOL_SIZE: int = (os.cpu_count() or 10)//2
     ITERATIONS: int = 1
     # Total iterations = ITERATIONS * POOL_SIZE * MEASUREMENTS_PER_ITERATION
     MEASUREMENTS_PER_ITERATION: int = 500
