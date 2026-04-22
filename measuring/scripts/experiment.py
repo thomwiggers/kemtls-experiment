@@ -18,7 +18,6 @@ from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import (
     Final,
-    Iterable,
     List,
     Literal,
     NamedTuple,
